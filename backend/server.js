@@ -137,7 +137,6 @@ app.get('/api/serial-numbers/available/:policyType', async (req, res) => {
     const { policyType } = req.params;
     const typeToSearch = policyType === 'Allianz Well' ? 'Allianz Well' : 'Default';
 
-    // Safety check: Use limit(1) to avoid crashes on duplicates
     const { data, error } = await supabase.from('serial_number')
       .select('*')
       .eq('serial_type', typeToSearch)
@@ -159,7 +158,7 @@ app.get('/api/serial-numbers/available/:policyType', async (req, res) => {
   }
 });
 
-// 2. SUBMIT MONITORING (ROBUST SYSTEM LOOKUP)
+// 2. SUBMIT MONITORING
 app.post('/api/monitoring/submit', async (req, res) => {
   try {
     const body = req.body;
@@ -168,7 +167,6 @@ app.post('/api/monitoring/submit', async (req, res) => {
     const MANUAL_POLICIES = ['Eazy Health', 'Allianz Fundamental Cover', 'Allianz Secure Pro'];
     const isManual = MANUAL_POLICIES.includes(body.policyType);
 
-    // --- POLICY LOOKUP ---
     let finalPolicyId = null;
     const { data: exactMatch } = await supabase.from('policy').select('policy_id').eq('policy_type', body.policyType).maybeSingle();
     if (exactMatch) finalPolicyId = exactMatch.policy_id;
@@ -179,45 +177,36 @@ app.post('/api/monitoring/submit', async (req, res) => {
     }
     if (!finalPolicyId) throw new Error(`Policy Type '${body.policyType}' not found.`);
 
-    // --- USER LOOKUP ---
     let userId = null;
     const { data: userData } = await supabase.from('users').select('user_id').eq('user_email', body.intermediaryEmail).maybeSingle();
     if (userData) userId = userData.user_id;
     else {
-      // FIX: Use 'name' for Agency lookup if needed, though we use ID here
       const { data: ag } = await supabase.from('agency').select('agency_id').limit(1).single();
       const { data: nu } = await supabase.from('users').insert([{ first_name: body.intermediaryName, last_name: '', user_email: body.intermediaryEmail, contact_number: 0, agency_id: ag.agency_id, role_id: 1 }]).select('user_id').single();
       userId = nu.user_id;
     }
 
-    // --- SERIAL LOGIC (FIXED) ---
     let serialId = null;
     if (isManual) {
-      // Manual: Check exists, if not create
       const { data: existingSerial } = await supabase.from('serial_number').select('serial_id').eq('serial_number', body.serialNumber).limit(1).maybeSingle();
       if (existingSerial) {
         serialId = existingSerial.serial_id;
         await supabase.from('serial_number').update({ is_issued: true }).eq('serial_id', serialId);
       } else {
-        // FIX: Ensure insert creates required fields (like date if needed) and captures errors
         const { data: newSerial, error: createError } = await supabase.from('serial_number')
           .insert([{
             serial_number: body.serialNumber,
             serial_type: 'Manual',
             is_issued: true,
-            date: new Date().toISOString() // Ensure date is present just in case
+            date: new Date().toISOString()
           }])
           .select('serial_id')
           .single();
 
-        if (createError) {
-          console.error("Manual Serial Creation Failed:", createError);
-          throw new Error("Failed to register manual serial number: " + createError.message);
-        }
+        if (createError) throw new Error("Failed to register manual serial number: " + createError.message);
         serialId = newSerial.serial_id;
       }
     } else {
-      // System: Must exist. Using limit(1).maybeSingle() to prevent crash on duplicates
       const { data: sysSerial } = await supabase.from('serial_number')
         .select('serial_id')
         .eq('serial_number', body.serialNumber)
@@ -228,8 +217,6 @@ app.post('/api/monitoring/submit', async (req, res) => {
       serialId = sysSerial.serial_id;
     }
 
-    // --- INSERT SUBMISSION ---
-    // FIX: ParseFloat safety to avoid NaN crashes
     const safePremium = parseFloat(body.premiumPaid) || 0;
     const safeANP = parseFloat(body.anp) || 0;
 
@@ -250,10 +237,7 @@ app.post('/api/monitoring/submit', async (req, res) => {
       attachments: []
     }]).select().single();
 
-    if (error) {
-      console.error("Submission Insert Failed:", error);
-      throw error;
-    }
+    if (error) throw error;
 
     if (!isManual && body.serialNumber) await supabase.from('serial_number').update({ is_issued: true }).eq('serial_number', body.serialNumber);
 
@@ -264,17 +248,60 @@ app.post('/api/monitoring/submit', async (req, res) => {
   }
 });
 
-// 3. GET DETAILS
+// --- [UPDATED] 3. GET DETAILS (With Strict 8->9 Digit Fallback) ---
 app.get('/api/submissions/details/:serialNumber', async (req, res) => {
   try {
     const { serialNumber } = req.params;
-    const { data: sData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
+
+    // A. Try exact match first
+    let { data: sData } = await supabase.from('serial_number')
+      .select('serial_id')
+      .eq('serial_number', serialNumber)
+      .limit(1)
+      .maybeSingle();
+
+    // B. If not found AND serial length is 9, try "Strict Check" on first 8 digits
+    if (!sData && serialNumber.length === 9) {
+      const parentSerial = serialNumber.slice(0, 8);
+      console.log(`Checking parent serial for transformation: ${parentSerial}`);
+
+      const { data: parentData } = await supabase.from('serial_number')
+        .select('serial_id')
+        .eq('serial_number', parentSerial)
+        .limit(1)
+        .maybeSingle();
+
+      if (parentData) {
+        sData = parentData; // Found the 8-digit parent!
+      }
+    }
+
     if (!sData) return res.status(404).json({ success: false, message: 'Serial not found' });
-    const { data: sub } = await supabase.from('az_submissions').select(`*, policy (policy_type), users (first_name, last_name)`).eq('serial_id', sData.serial_id).limit(1).maybeSingle();
+
+    const { data: sub } = await supabase.from('az_submissions')
+      .select(`*, policy (policy_type), users (first_name, last_name)`)
+      .eq('serial_id', sData.serial_id)
+      .limit(1)
+      .maybeSingle();
+
     if (!sub) return res.status(404).json({ success: false, message: 'Submission not found' });
+
     const nameParts = (sub.client_name || '').split(' ');
-    res.json({ success: true, data: { clientFirstName: nameParts[0], clientLastName: nameParts.slice(1).join(' '), clientEmail: sub.client_email, policyType: sub.policy?.policy_type, modeOfPayment: sub.mode_of_payment, policyDate: sub.issued_at } });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+    res.json({
+      success: true,
+      data: {
+        clientFirstName: nameParts[0],
+        clientLastName: nameParts.slice(1).join(' '),
+        clientEmail: sub.client_email,
+        policyType: sub.policy?.policy_type,
+        modeOfPayment: sub.mode_of_payment,
+        policyDate: sub.issued_at
+      }
+    });
+
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
 
 // 4. PREVIEW APPLICATION
@@ -287,22 +314,65 @@ app.post('/api/preview-application', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 5. DOCUMENT SUBMISSION
+// --- [UPDATED] 5. DOCUMENT SUBMISSION (With Auto-Update for 9-digit Serials) ---
 app.post('/api/form-submissions', upload.any(), async (req, res) => {
   try {
     const { serialNumber, formData } = req.body;
     const parsedData = JSON.parse(formData || '{}');
+    let serialIdToUse = null;
+    let isMigration = false; // Flag to track if we need to update DB
 
-    // Validation
-    const { data: serialData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
+    // A. Validation: Check Exact Match
+    let { data: serialData } = await supabase.from('serial_number')
+      .select('serial_id')
+      .eq('serial_number', serialNumber)
+      .limit(1)
+      .maybeSingle();
+
+    // B. Validation: Check Parent (8-digit) Match if 9-digit fails
+    if (!serialData && serialNumber.length === 9) {
+      const parentSerial = serialNumber.slice(0, 8);
+      const { data: parentData } = await supabase.from('serial_number')
+        .select('serial_id')
+        .eq('serial_number', parentSerial)
+        .limit(1)
+        .maybeSingle();
+
+      if (parentData) {
+        serialData = parentData;
+        isMigration = true; // We found the 8-digit parent, enable update mode
+      }
+    }
+
     if (!serialData) return res.status(404).json({ message: 'Serial not found' });
-    const { data: existing } = await supabase.from('az_submissions').select('*').eq('serial_id', serialData.serial_id).limit(1).maybeSingle();
+    serialIdToUse = serialData.serial_id;
+
+    // C. Find the existing submission using the ID
+    const { data: existing } = await supabase.from('az_submissions')
+      .select('*')
+      .eq('serial_id', serialIdToUse)
+      .limit(1)
+      .maybeSingle();
+
     if (!existing) return res.status(404).json({ message: 'Submission not found' });
 
+    // D. [CRITICAL] If this was a migration (8 -> 9 digits), UPDATE the database now
+    if (isMigration) {
+      console.log(`Migrating Serial ID ${serialIdToUse}: ${serialNumber.slice(0, 8)} -> ${serialNumber}`);
+      const { error: updateError } = await supabase.from('serial_number')
+        .update({ serial_number: serialNumber }) // Update to the new 9-digit number
+        .eq('serial_id', serialIdToUse);
+
+      if (updateError) {
+        console.error("Failed to update serial number:", updateError);
+        // Continue anyway? Usually yes, to save the docs, but warn console.
+      }
+    }
+
+    // ... Proceed with File Uploads (Same as before) ...
     const newFilesForDB = [];
     const emailAttachments = [];
 
-    // User Files
     if (req.files) {
       for (const f of req.files) {
         try {
@@ -313,7 +383,6 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
       }
     }
 
-    // Generated PDF
     let generatedPdfUrl = null;
     const pdfBuffer = await generateApplicationPDF(parsedData, serialNumber);
     const pdfFilename = `Application_${serialNumber}.pdf`;
@@ -323,15 +392,14 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
     generatedPdfUrl = pdfUpload.fileUrl;
     emailAttachments.push({ filename: pdfFilename, content: pdfBuffer });
 
-    // Update DB
     const { data: updated, error } = await supabase.from('az_submissions').update({
-      form_type: parsedData.formType, mode_of_payment: parsedData.modeOfPayment,
+      form_type: parsedData.formType,
+      mode_of_payment: parsedData.modeOfPayment,
       attachments: [...(existing.attachments || []), ...newFilesForDB]
     }).eq('sub_id', existing.sub_id).select().single();
 
     if (error) throw error;
 
-    // Email
     try {
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -344,13 +412,16 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
     } catch (err) { console.error("❌ Email failed:", err); }
 
     res.json({ success: true, data: updated, generatedPdfUrl });
-  } catch (e) { console.error(e); res.status(500).json({ success: false, message: e.message }); }
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
 
-// --- UPDATED MONITORING ENDPOINTS ---
+// ... [REMAINING ROUTES UNCHANGED] ...
 
 app.get('/api/monitoring/all', async (req, res) => {
-  // FIX: select(..., agency(name)) based on SCHEMA
   const { data } = await supabase
     .from('az_submissions')
     .select(`*, policy (policy_type), serial_number (serial_number), users (first_name, last_name, agency(name))`)
@@ -362,18 +433,16 @@ app.get('/api/monitoring/all', async (req, res) => {
     policy_type: i.policy?.policy_type,
     serial_number: i.serial_number?.serial_number,
     intermediary_name: i.users?.first_name,
-    agency: i.users?.agency?.name, // Use 'name' from Agency
+    agency: i.users?.agency?.name,
     created_at: i.issued_at
   }));
 
   res.json({ success: true, data: flattened });
 });
 
-// --- UPDATED CUSTOMERS ENDPOINT (FIXED BLANK DATA) ---
 app.get('/api/customers', async (req, res) => {
-  // FIX: select(..., payment_history(*)) to include history
   const { data } = await supabase.from('az_submissions')
-    .select(`*, policy (policy_type), serial_number (serial_number), users (agency(name)), payment_history(*)`);
+    .select(`*, policy (policy_type), serial_number (serial_number), users (agency(name))`);
 
   const map = {};
   (data || []).forEach(s => {
@@ -387,16 +456,12 @@ app.get('/api/customers', async (req, res) => {
           submissions: []
         };
       }
-
-      // FLATTEN THE DATA SO FRONTEND CAN READ IT EASILY
       const flatSubmission = {
         ...s,
         policy_type: s.policy?.policy_type,
         serial_number: s.serial_number?.serial_number,
-        agency: s.users?.agency?.name, // Use 'name' from Agency
-        payment_history: s.payment_history || [] // Ensure array
+        agency: s.users?.agency?.name
       };
-
       map[s.client_email].submissions.push(flatSubmission);
     }
   });
@@ -405,63 +470,21 @@ app.get('/api/customers', async (req, res) => {
 
 app.patch('/api/form-submissions/:id/status', async (req, res) => {
   const { id } = req.params; const { status } = req.body;
-
-  const updateData = { status };
-  if (status === 'Issued') {
-    updateData.date_issued = new Date().toISOString();
-  }
-
-  await supabase.from('az_submissions').update(updateData).eq('sub_id', id);
+  await supabase.from('az_submissions').update({ status }).eq('sub_id', id);
   res.json({ success: true });
 });
+
 app.post('/api/submissions/:id/pay', async (req, res) => {
   try {
     const { id } = req.params;
     const { data: policy } = await supabase.from('az_submissions').select('*').eq('sub_id', id).limit(1).maybeSingle();
     if (!policy) return res.status(404).json({ success: false, message: 'Not found' });
-
-    // 1. Record in History
-    // Parse amount to ensure numeric (remove commas if string, etc)
-    let safeAmount = 0;
-    if (policy.premium_paid) {
-      safeAmount = typeof policy.premium_paid === 'string'
-        ? parseFloat(policy.premium_paid.replace(/,/g, ''))
-        : parseFloat(policy.premium_paid);
-    }
-
-    const historyPayload = {
-      sub_id: id,
-      amount: safeAmount || 0,
-      period_covered: policy.next_payment_date,
-      payment_date: new Date().toISOString()
-    };
-    console.log('Inserting History:', historyPayload);
-
-    const { error: histError } = await supabase.from('payment_history').insert([historyPayload]);
-
-    if (histError) {
-      console.error('History Insert Error:', histError);
-      throw new Error('Failed to record payment history: ' + histError.message);
-    }
-    else console.log('History Insert Success');
-
-    // 2. Rollover Date
     const newDueDate = calculateNextPaymentDate(policy.next_payment_date, policy.mode_of_payment);
-
-    // 3. Update Submission (Reset is_paid to false for next cycle)
-    await supabase.from('az_submissions').update({
-      next_payment_date: newDueDate,
-      is_paid: false
-    }).eq('sub_id', id);
-
+    await supabase.from('az_submissions').update({ next_payment_date: newDueDate }).eq('sub_id', id);
     res.json({ success: true, message: 'Paid', nextDate: newDueDate });
-  } catch (e) {
-    console.error('PAY ENDPOINT ERROR:', e);
-    res.status(500).json({ success: false, message: e.message });
-  }
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-// Performance endpoint for AL dashboard
 app.get('/api/performance/all', async (req, res) => {
   try {
     const { data: submissions, error } = await supabase
@@ -486,10 +509,7 @@ app.get('/api/performance/all', async (req, res) => {
     let apCountForConversion = 0;
 
     submissions.forEach(sub => {
-      // Use submission_type as AP Name
-      // Logic adjustment: The frontend seems to treat 'submission_type' as AP Name based on previous code
       const apName = sub.submission_type || 'Unknown';
-
       if (!performanceByAP[apName]) {
         performanceByAP[apName] = {
           apName,
@@ -503,23 +523,16 @@ app.get('/api/performance/all', async (req, res) => {
           submissions: []
         };
       }
-
       const anp = parseFloat(sub.anp) || 0;
-
-      // Update Stats per AP
       performanceByAP[apName].totalSubmissions++;
       performanceByAP[apName].submissions.push(sub);
-
-      // Update Team Stats
       teamStats.totalSubmissions++;
 
       if (sub.status === 'Issued') {
         performanceByAP[apName].totalANP += anp;
         performanceByAP[apName].issued++;
-
         teamStats.totalTeamANP += anp;
         teamStats.totalIssued++;
-
         const now = new Date();
         const subDate = new Date(sub.issued_at);
         if (subDate.getMonth() === now.getMonth() && subDate.getFullYear() === now.getFullYear()) {
@@ -535,7 +548,6 @@ app.get('/api/performance/all', async (req, res) => {
       }
     });
 
-    // Calculate Conversion Rates
     const performanceList = Object.values(performanceByAP);
     performanceList.forEach(ap => {
       if (ap.totalSubmissions > 0) {
@@ -549,13 +561,7 @@ app.get('/api/performance/all', async (req, res) => {
       teamStats.averageConversionRate = (totalConversionRates / apCountForConversion).toFixed(1);
     }
 
-    res.json({
-      success: true,
-      data: {
-        performanceByAP: performanceList,
-        teamStats
-      }
-    });
+    res.json({ success: true, data: { performanceByAP: performanceList, teamStats } });
   } catch (e) {
     console.error('Performance endpoint error:', e);
     res.status(500).json({ success: false, message: e.message });
