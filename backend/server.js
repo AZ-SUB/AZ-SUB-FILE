@@ -179,15 +179,14 @@ app.post('/api/monitoring/submit', async (req, res) => {
     }
     if (!finalPolicyId) throw new Error(`Policy Type '${body.policyType}' not found.`);
 
-    // --- USER LOOKUP ---
-    let userId = null;
-    const { data: userData } = await supabase.from('users').select('user_id').eq('user_email', body.intermediaryEmail).maybeSingle();
-    if (userData) userId = userData.user_id;
-    else {
-      // FIX: Use 'name' for Agency lookup if needed, though we use ID here
-      const { data: ag } = await supabase.from('agency').select('agency_id').limit(1).single();
-      const { data: nu } = await supabase.from('users').insert([{ first_name: body.intermediaryName, last_name: '', user_email: body.intermediaryEmail, contact_number: 0, agency_id: ag.agency_id, role_id: 1 }]).select('user_id').single();
-      userId = nu.user_id;
+    // --- PROFILE LOOKUP (For User Linking) ---
+    // Prioritize explicit profileId from frontend, otherwise lookup by email
+    let profileId = body.profileId || null;
+
+    if (!profileId) {
+      // Try to find a profile with this email to link for visibility
+      const { data: profileData } = await supabase.from('profiles').select('id').eq('email', body.intermediaryEmail).maybeSingle();
+      if (profileData) profileId = profileData.id;
     }
 
     // --- SERIAL LOGIC (FIXED) ---
@@ -234,7 +233,7 @@ app.post('/api/monitoring/submit', async (req, res) => {
     const safeANP = parseFloat(body.anp) || 0;
 
     const { data, error } = await supabase.from('az_submissions').insert([{
-      user_id: userId,
+      profile_id: profileId, // Added profile_id for user visibility linkage
       client_name: `${body.clientFirstName} ${body.clientLastName}`,
       client_email: body.clientEmail,
       policy_id: finalPolicyId,
@@ -264,14 +263,32 @@ app.post('/api/monitoring/submit', async (req, res) => {
   }
 });
 
-// 3. GET DETAILS
+// 3. GET DETAILS (Strict 8->9 Digit Check)
 app.get('/api/submissions/details/:serialNumber', async (req, res) => {
   try {
     const { serialNumber } = req.params;
-    const { data: sData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
+
+    // A. Exact Match
+    let { data: sData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
+
+    // B. Strict Check (9-digit -> 8-digit)
+    if (!sData && serialNumber.length === 9) {
+      const parentSerial = serialNumber.slice(0, 8);
+      const { data: parentData } = await supabase.from('serial_number')
+        .select('serial_id')
+        .eq('serial_number', parentSerial)
+        .limit(1)
+        .maybeSingle();
+
+      if (parentData) sData = parentData; // Found parent
+    }
+
     if (!sData) return res.status(404).json({ success: false, message: 'Serial not found' });
-    const { data: sub } = await supabase.from('az_submissions').select(`*, policy (policy_type), users (first_name, last_name)`).eq('serial_id', sData.serial_id).limit(1).maybeSingle();
+
+    const { data: sub } = await supabase.from('az_submissions').select(`*, policy (policy_type), profiles (first_name, last_name)`).eq('serial_id', sData.serial_id).limit(1).maybeSingle();
+
     if (!sub) return res.status(404).json({ success: false, message: 'Submission not found' });
+
     const nameParts = (sub.client_name || '').split(' ');
     res.json({ success: true, data: { clientFirstName: nameParts[0], clientLastName: nameParts.slice(1).join(' '), clientEmail: sub.client_email, policyType: sub.policy?.policy_type, modeOfPayment: sub.mode_of_payment, policyDate: sub.issued_at } });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -288,16 +305,56 @@ app.post('/api/preview-application', async (req, res) => {
 });
 
 // 5. DOCUMENT SUBMISSION
+app.get('/api/form-submissions', async (req, res) => {
+  try {
+    let query = supabase.from('az_submissions').select('*').order('issued_at', { ascending: false });
+    if (req.query.profileId) {
+      query = query.eq('profile_id', req.query.profileId);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 app.post('/api/form-submissions', upload.any(), async (req, res) => {
   try {
     const { serialNumber, formData } = req.body;
     const parsedData = JSON.parse(formData || '{}');
+    let serialIdToUse = null;
+    let isMigration = false;
 
-    // Validation
-    const { data: serialData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
+    // A. Check Exact Match
+    let { data: serialData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
+
+    // B. Check Parent Match (Migration)
+    if (!serialData && serialNumber.length === 9) {
+      const parentSerial = serialNumber.slice(0, 8);
+      const { data: parentData } = await supabase.from('serial_number')
+        .select('serial_id')
+        .eq('serial_number', parentSerial)
+        .limit(1)
+        .maybeSingle();
+
+      if (parentData) {
+        serialData = parentData;
+        isMigration = true;
+      }
+    }
+
     if (!serialData) return res.status(404).json({ message: 'Serial not found' });
-    const { data: existing } = await supabase.from('az_submissions').select('*').eq('serial_id', serialData.serial_id).limit(1).maybeSingle();
+    serialIdToUse = serialData.serial_id;
+
+    const { data: existing } = await supabase.from('az_submissions').select('*').eq('serial_id', serialIdToUse).limit(1).maybeSingle();
     if (!existing) return res.status(404).json({ message: 'Submission not found' });
+
+    // C. Perform Migration if needed
+    if (isMigration) {
+      console.log(`Migrating Serial ID ${serialIdToUse}: 8-digits -> ${serialNumber}`);
+      await supabase.from('serial_number').update({ serial_number: serialNumber }).eq('serial_id', serialIdToUse);
+    }
 
     const newFilesForDB = [];
     const emailAttachments = [];
@@ -351,18 +408,24 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
 
 app.get('/api/monitoring/all', async (req, res) => {
   // FIX: select(..., agency(name)) based on SCHEMA
-  const { data } = await supabase
+  let query = supabase
     .from('az_submissions')
-    .select(`*, policy (policy_type), serial_number (serial_number), users (first_name, last_name, agency(name))`)
+    .select(`*, policy (policy_type), serial_number (serial_number), profiles (first_name, last_name), agency (name)`)
     .order('issued_at', { ascending: false });
+
+  if (req.query.profileId) {
+    query = query.eq('profile_id', req.query.profileId);
+  }
+
+  const { data } = await query;
 
   const flattened = (data || []).map(i => ({
     ...i,
     id: i.sub_id,
     policy_type: i.policy?.policy_type,
     serial_number: i.serial_number?.serial_number,
-    intermediary_name: i.users?.first_name,
-    agency: i.users?.agency?.name, // Use 'name' from Agency
+    intermediary_name: i.profiles ? `${i.profiles.first_name || ''} ${i.profiles.last_name || ''}`.trim() : 'Unknown',
+    agency: i.agency?.name, // Direct link
     created_at: i.issued_at
   }));
 
@@ -371,9 +434,21 @@ app.get('/api/monitoring/all', async (req, res) => {
 
 // --- UPDATED CUSTOMERS ENDPOINT (FIXED BLANK DATA) ---
 app.get('/api/customers', async (req, res) => {
+<<<<<<< Updated upstream
   // FIX: select(..., agency(name)) based on SCHEMA
   const { data } = await supabase.from('az_submissions')
     .select(`*, policy (policy_type), serial_number (serial_number), users (agency(name))`);
+=======
+  // FIX: select(..., payment_history(*)) to include history
+  let query = supabase.from('az_submissions')
+    .select(`*, policy (policy_type), serial_number (serial_number), agency(name), payment_history(*)`);
+
+  if (req.query.profileId) {
+    query = query.eq('profile_id', req.query.profileId);
+  }
+
+  const { data } = await query;
+>>>>>>> Stashed changes
 
   const map = {};
   (data || []).forEach(s => {
@@ -393,7 +468,12 @@ app.get('/api/customers', async (req, res) => {
         ...s,
         policy_type: s.policy?.policy_type,
         serial_number: s.serial_number?.serial_number,
+<<<<<<< Updated upstream
         agency: s.users?.agency?.name // Use 'name' from Agency
+=======
+        agency: s.agency?.name, // Use 'name' from Agency/Direct
+        payment_history: s.payment_history || [] // Ensure array
+>>>>>>> Stashed changes
       };
 
       map[s.client_email].submissions.push(flatSubmission);
@@ -421,10 +501,16 @@ app.post('/api/submissions/:id/pay', async (req, res) => {
 // Performance endpoint for AL dashboard
 app.get('/api/performance/all', async (req, res) => {
   try {
-    const { data: submissions, error } = await supabase
+    let query = supabase
       .from('az_submissions')
       .select('*')
       .order('issued_at', { ascending: false });
+
+    if (req.query.profileId) {
+      query = query.eq('profile_id', req.query.profileId);
+    }
+
+    const { data: submissions, error } = await query;
 
     if (error) throw error;
 

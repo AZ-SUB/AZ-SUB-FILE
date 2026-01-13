@@ -10,8 +10,10 @@ export const api = {
   },
 
   // Monitoring
-  getAllMonitoring: async () => {
-    const res = await fetch(`${API_URL}/api/monitoring/all?t=${Date.now()}`);
+  getAllMonitoring: async (profileId) => {
+    let url = `${API_URL}/api/monitoring/all?t=${Date.now()}`;
+    if (profileId) url += `&profileId=${profileId}`;
+    const res = await fetch(url);
     return res.json();
   },
 
@@ -36,8 +38,10 @@ export const api = {
   },
 
   // Form Submissions
-  getAllFormSubmissions: async () => {
-    const res = await fetch(`${API_URL}/api/form-submissions?t=${Date.now()}`);
+  getAllFormSubmissions: async (profileId) => {
+    let url = `${API_URL}/api/form-submissions?t=${Date.now()}`;
+    if (profileId) url += `&profileId=${profileId}`;
+    const res = await fetch(url);
     return res.json();
   },
 
@@ -59,8 +63,10 @@ export const api = {
   },
 
   // Customers
-  getAllCustomers: async () => {
-    const res = await fetch(`${API_URL}/api/customers?t=${Date.now()}`);
+  getAllCustomers: async (profileId) => {
+    let url = `${API_URL}/api/customers?t=${Date.now()}`;
+    if (profileId) url += `&profileId=${profileId}`;
+    const res = await fetch(url);
     return res.json();
   },
 
@@ -77,9 +83,11 @@ export const api = {
   },
 
   // AL Team Performance
-  getALTeamPerformance: async (alUserId) => {
+  getALTeamPerformance: async (profileId) => {
     try {
-      const res = await fetch(`${API_URL}/api/performance/all?t=${Date.now()}`);
+      let url = `${API_URL}/api/performance/all?t=${Date.now()}`;
+      if (profileId) url += `&profileId=${profileId}`;
+      const res = await fetch(url);
       return res.json();
     } catch (err) {
       console.error('Error in getALTeamPerformance:', err);
