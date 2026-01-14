@@ -15,6 +15,7 @@ import DocHistoryPage from './pages/AP/DocHistoryPage';
 import AdminDashboard from './pages/Admin/Admin-Dashboard';
 import ManageUsers from './pages/Admin/ManageUsers';
 import AdminSerialNumber from './pages/Admin/Admin-SerialNumber';
+import AdminPolicies from './pages/Admin/Admin-Policies';
 
 // AL Pages
 import ALDashboard from './pages/AL/DashboardPage';
@@ -45,6 +46,7 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/ManageUsers" element={<ManageUsers />} />
           <Route path="/admin/SerialNumber" element={<AdminSerialNumber />} />
+          <Route path="/admin/policies" element={<AdminPolicies />} />
 
           {/* AL Routes - Same as AP plus Team Performance */}
           <Route path="/al/dashboard" element={<MainLayout><ALDashboard /></MainLayout>} />
