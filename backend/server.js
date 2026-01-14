@@ -486,21 +486,47 @@ app.patch('/api/form-submissions/:id/status', async (req, res) => {
 app.post('/api/submissions/:id/pay', async (req, res) => {
   try {
     const { id } = req.params;
-    const { data: policy } = await supabase.from('az_submissions').select('*').eq('sub_id', id).limit(1).maybeSingle();
-    if (!policy) return res.status(404).json({ success: false, message: 'Not found' });
+
+    // Validate ID
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Invalid submission ID' });
+    }
+
+    const { data: policy, error: fetchError } = await supabase.from('az_submissions').select('*').eq('sub_id', id).limit(1).maybeSingle();
+
+    if (fetchError) {
+      console.error('Error fetching policy:', fetchError);
+      return res.status(500).json({ success: false, message: 'Database error: ' + fetchError.message });
+    }
+
+    if (!policy) {
+      return res.status(404).json({ success: false, message: 'Policy not found' });
+    }
 
     // 1. Record in History
     // Parse amount to ensure numeric (remove commas if string, etc)
-    let safeAmount = 0;
+    let totalPremium = 0;
     if (policy.premium_paid) {
-      safeAmount = typeof policy.premium_paid === 'string'
+      totalPremium = typeof policy.premium_paid === 'string'
         ? parseFloat(policy.premium_paid.replace(/,/g, ''))
         : parseFloat(policy.premium_paid);
     }
 
+    // Calculate Installment Amount based on Mode
+    let installmentAmount = totalPremium;
+    switch (policy.mode_of_payment) {
+      case 'Monthly': installmentAmount = totalPremium / 12; break;
+      case 'Quarterly': installmentAmount = totalPremium / 4; break;
+      case 'Semi-Annual': installmentAmount = totalPremium / 2; break;
+      default: installmentAmount = totalPremium; break; // Annual or others
+    }
+
+    // Round to 2 decimals
+    installmentAmount = Math.round(installmentAmount * 100) / 100;
+
     const historyPayload = {
       sub_id: id,
-      amount: safeAmount || 0,
+      amount: installmentAmount || 0,
       period_covered: policy.next_payment_date,
       payment_date: new Date().toISOString()
     };
@@ -510,23 +536,35 @@ app.post('/api/submissions/:id/pay', async (req, res) => {
 
     if (histError) {
       console.error('History Insert Error:', histError);
-      throw new Error('Failed to record payment history: ' + histError.message);
+      return res.status(500).json({ success: false, message: 'Failed to record payment history: ' + histError.message });
     }
-    else console.log('History Insert Success');
+    console.log('History Insert Success');
 
     // 2. Rollover Date
     const newDueDate = calculateNextPaymentDate(policy.next_payment_date, policy.mode_of_payment);
 
-    // 3. Update Submission (Reset is_paid to false for next cycle)
-    await supabase.from('az_submissions').update({
+    // 3. Update Submission (Reset is_paid to false for next cycle, update date_issued if not set)
+    const updatePayload = {
       next_payment_date: newDueDate,
       is_paid: false
-    }).eq('sub_id', id);
+    };
 
-    res.json({ success: true, message: 'Paid', nextDate: newDueDate });
+    // Set date_issued if this is the first payment and status is Issued
+    if (policy.status === 'Issued' && !policy.date_issued) {
+      updatePayload.date_issued = new Date().toISOString();
+    }
+
+    const { error: updateError } = await supabase.from('az_submissions').update(updatePayload).eq('sub_id', id);
+
+    if (updateError) {
+      console.error('Update Error:', updateError);
+      return res.status(500).json({ success: false, message: 'Failed to update payment: ' + updateError.message });
+    }
+
+    res.json({ success: true, message: 'Payment recorded successfully', nextDate: newDueDate });
   } catch (e) {
     console.error('PAY ENDPOINT ERROR:', e);
-    res.status(500).json({ success: false, message: e.message });
+    res.status(500).json({ success: false, message: e.message || 'Internal server error' });
   }
 });
 
@@ -620,7 +658,18 @@ app.get('/api/performance/all', async (req, res) => {
         };
       }
 
-      const anp = parseFloat(sub.anp) || 0;
+      // Use premium_paid as Full Amount per user request "total anp should be the premium paid"
+      const totalPremium = parseFloat(sub.premium_paid) || 0;
+
+      // Calculate Modal/Installment Premium for "Monthly ANP" logic
+      let modalPremium = totalPremium;
+      // Normalizing mode string just in case
+      const mode = (sub.mode_of_payment || '').trim();
+
+      if (mode === 'Monthly') modalPremium = totalPremium / 12;
+      else if (mode === 'Quarterly') modalPremium = totalPremium / 4;
+      else if (mode === 'Semi-Annual') modalPremium = totalPremium / 2;
+      // Annual remains totalPremium
 
       // Update Stats per AP
       performanceByAP[apName].totalSubmissions++;
@@ -630,17 +679,18 @@ app.get('/api/performance/all', async (req, res) => {
       teamStats.totalSubmissions++;
 
       if (sub.status === 'Issued') {
-        performanceByAP[apName].totalANP += anp;
+        performanceByAP[apName].totalANP += totalPremium;
         performanceByAP[apName].issued++;
 
-        teamStats.totalTeamANP += anp;
+        teamStats.totalTeamANP += totalPremium;
         teamStats.totalIssued++;
 
         const now = new Date();
         const subDate = new Date(sub.issued_at);
         if (subDate.getMonth() === now.getMonth() && subDate.getFullYear() === now.getFullYear()) {
-          performanceByAP[apName].monthlyANP += anp;
-          teamStats.totalMonthlyANP += anp;
+          // Monthly ANP stat uses the Modal/Installment Amount
+          performanceByAP[apName].monthlyANP += modalPremium;
+          teamStats.totalMonthlyANP += modalPremium;
         }
       } else if (sub.status === 'Declined') {
         performanceByAP[apName].declined++;

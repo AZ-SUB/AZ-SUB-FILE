@@ -92,202 +92,243 @@ const PerformanceDashboardPage = () => {
         }]
     };
 
+    // Extra Stats Logic
+    const activeAgents = performanceByAP.filter(ap => ap.issued > 0).length;
+    const avgCaseSize = teamStats.totalIssued > 0
+        ? teamStats.totalTeamANP / teamStats.totalIssued
+        : 0;
+
     return (
-        <>
-            <div className="card">
-                <div className="card-header">
-                    <h2>Your Team Performance Overview</h2>
+        <div style={{ paddingBottom: '40px' }}>
+            <div className="card" style={{ marginBottom: '24px', border: 'none', background: 'transparent', boxShadow: 'none' }}>
+                <div className="card-header" style={{ background: 'transparent', border: 'none', padding: '0 0 10px 0' }}>
+                    <h2 style={{ fontSize: '24px', color: '#2c3e50', fontWeight: '800' }}>Team Performance Overview</h2>
+                    <p style={{ color: '#7f8c8d', margin: 0 }}>Real-time metrics and agent rankings</p>
                 </div>
-                <div className="card-body">
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gap: '20px'
-                    }}>
-                        <div className="stat-card" style={{ borderLeft: '4px solid #f39c12' }}>
-                            <div className="stat-header"><div className="stat-label">Total Team ANP</div></div>
-                            <div className="stat-value">PHP {teamStats.totalTeamANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                            <div className="stat-subtext">All-time team production</div>
-                        </div>
 
-                        <div className="stat-card" style={{ borderLeft: '4px solid #28a745' }}>
-                            <div className="stat-header"><div className="stat-label">Monthly Team ANP</div></div>
-                            <div className="stat-value">PHP {teamStats.totalMonthlyANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                            <div className="stat-subtext">Current month</div>
-                        </div>
+                {/* STATS ROW */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '20px'
+                }}>
+                    <div className="stat-card" style={{ borderLeft: '4px solid #f39c12', backgroundColor: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                        <div className="stat-header"><div className="stat-label">Total Team ANP</div></div>
+                        <div className="stat-value" style={{ color: '#2c3e50' }}>PHP {teamStats.totalTeamANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                        <div className="stat-subtext">All-time team production</div>
+                    </div>
 
-                        <div className="stat-card" style={{ borderLeft: '4px solid #0055b8' }}>
-                            <div className="stat-header"><div className="stat-label">Total Submissions</div></div>
-                            <div className="stat-value">{teamStats.totalSubmissions}</div>
-                            <div className="stat-subtext">All team applications</div>
-                        </div>
+                    <div className="stat-card" style={{ borderLeft: '4px solid #28a745', backgroundColor: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                        <div className="stat-header"><div className="stat-label">Monthly Team ANP</div></div>
+                        <div className="stat-value" style={{ color: '#28a745' }}>PHP {teamStats.totalMonthlyANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                        <div className="stat-subtext">Current month intake</div>
+                    </div>
 
-                        <div className="stat-card" style={{ borderLeft: '4px solid #9b59b6' }}>
-                            <div className="stat-header"><div className="stat-label">Avg Conversion Rate</div></div>
-                            <div className="stat-value">{teamStats.averageConversionRate}%</div>
-                            <div className="stat-subtext">Team average</div>
+                    <div className="stat-card" style={{ borderLeft: '4px solid #0055b8', backgroundColor: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                        <div className="stat-header"><div className="stat-label">Avg Case Size</div></div>
+                        <div className="stat-value" style={{ color: '#0055b8' }}>PHP {avgCaseSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                        <div className="stat-subtext">Per issued policy</div>
+                    </div>
+
+                    <div className="stat-card" style={{ borderLeft: '4px solid #9b59b6', backgroundColor: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                        <div className="stat-header"><div className="stat-label">Active Agents</div></div>
+                        <div className="stat-value" style={{ color: '#9b59b6' }}>{activeAgents} <span style={{ fontSize: '14px', color: '#777' }}>/ {performanceByAP.length}</span></div>
+                        <div className="stat-subtext">{((activeAgents / performanceByAP.length) * 100).toFixed(0)}% Activation Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* CHARTS ROW using standard 'charts-grid' for consistent sizing */}
+            <div className="charts-grid" style={{ marginTop: '24px', marginBottom: '24px' }}>
+                <div className="chart-container">
+                    <div className="chart-title">Production Overview (ANP)</div>
+                    <div className="chart-wrapper">
+                        <Bar
+                            data={{
+                                ...anpChartData,
+                                datasets: [{
+                                    ...anpChartData.datasets[0],
+                                    backgroundColor: (context) => {
+                                        const ctx = context.chart.ctx;
+                                        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                                        gradient.addColorStop(0, '#0055b8');
+                                        gradient.addColorStop(1, '#00a8e8');
+                                        return gradient;
+                                    },
+                                    borderRadius: 6,
+                                    barThickness: 'flex',
+                                    maxBarThickness: 60
+                                }]
+                            }}
+                            options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } }
+                            }}
+                        />
+                    </div>
+                </div>
+
+                <div className="chart-container">
+                    <div className="chart-title">Team Efficiency (Issued)</div>
+                    <div className="chart-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Doughnut
+                            data={statusChartData}
+                            options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom' } },
+                                cutout: '65%'
+                            }}
+                        />
+                        <div style={{ position: 'absolute', pointerEvents: 'none', textAlign: 'center' }}>
+                            <div style={{ fontSize: '28px', fontWeight: '800', color: '#2c3e50' }}>{teamStats.totalIssued}</div>
+                            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>Issued</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Top Performers */}
-            <div className="card">
-                <div className="card-header">
-                    <h2>🏆 Top Performers</h2>
-                </div>
-                <div className="card-body">
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-                        {topPerformers.map((ap, index) => (
-                            <div
-                                key={ap.apName}
-                                style={{
-                                    padding: '20px',
-                                    borderRadius: '12px',
-                                    background: index === 0
-                                        ? 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)'
-                                        : index === 1
-                                            ? 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)'
-                                            : 'linear-gradient(135deg, #cd7f32 0%, #b8860b 100%)',
-                                    color: 'white',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                    position: 'relative'
-                                }}
-                            >
-                                <div style={{ fontSize: '32px', marginBottom: '10px' }}>
-                                    {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                                </div>
-                                <div style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>
-                                    {ap.apName}
-                                </div>
-                                <div style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px' }}>
-                                    PHP {ap.totalANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </div>
-                                <div style={{ fontSize: '13px', opacity: 0.9 }}>
-                                    {ap.issued} Issued • {ap.conversionRate}% Rate
-                                </div>
-                            </div>
-                        ))}
+            {/* AP Performance Table - MODERN UI */}
+            <div className="card" style={{ border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', borderRadius: '12px', overflow: 'hidden' }}>
+                <div className="card-header" style={{
+                    background: '#fff',
+                    borderBottom: '1px solid #eee',
+                    padding: '20px 25px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <div>
+                        <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#2c3e50', margin: 0 }}>Agency Partner Performance</h2>
+                        <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#95a5a6' }}>Detailed breakdown of individual agent metrics</p>
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#bdc3c7' }}>🔍</span>
+                        <input
+                            type="text"
+                            placeholder="Search Agents..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{
+                                padding: '10px 16px 10px 36px',
+                                borderRadius: '8px',
+                                border: '1px solid #e0e0e0',
+                                fontSize: '14px',
+                                width: '280px',
+                                outline: 'none',
+                                transition: 'all 0.2s',
+                                backgroundColor: '#f9f9f9'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#3498db'}
+                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                        />
                     </div>
                 </div>
-            </div>
-
-            {/* Charts */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
-                <div className="card">
-                    <div className="card-header">
-                        <h2>ANP by Agency Partner</h2>
-                    </div>
-                    <div className="card-body">
-                        <div style={{ height: '300px' }}>
-                            <Bar
-                                data={anpChartData}
-                                options={{
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    plugins: {
-                                        legend: { display: false }
-                                    }
-                                }}
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="card">
-                    <div className="card-header">
-                        <h2>Team Status Distribution</h2>
-                    </div>
-                    <div className="card-body">
-                        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Doughnut
-                                data={statusChartData}
-                                options={{
-                                    responsive: true,
-                                    maintainAspectRatio: false
-                                }}
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* AP Performance Table */}
-            <div className="card">
-                <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2>Agency Partner Performance</h2>
-                    <input
-                        type="text"
-                        placeholder="Search by AP name..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            padding: '8px 16px',
-                            borderRadius: '6px',
-                            border: '1px solid #ddd',
-                            fontSize: '14px',
-                            width: '250px'
-                        }}
-                    />
-                </div>
-                <div className="card-body">
-                    <table className="serial-table">
-                        <thead>
-                            <tr>
-                                <th onClick={() => handleSort('apName')} style={{ cursor: 'pointer' }}>
-                                    AP Name {sortConfig.key === 'apName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th onClick={() => handleSort('totalANP')} style={{ cursor: 'pointer' }}>
-                                    Total ANP {sortConfig.key === 'totalANP' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th onClick={() => handleSort('monthlyANP')} style={{ cursor: 'pointer' }}>
-                                    Monthly ANP {sortConfig.key === 'monthlyANP' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th onClick={() => handleSort('totalSubmissions')} style={{ cursor: 'pointer' }}>
-                                    Submissions {sortConfig.key === 'totalSubmissions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th onClick={() => handleSort('issued')} style={{ cursor: 'pointer' }}>
-                                    Issued {sortConfig.key === 'issued' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th onClick={() => handleSort('pending')} style={{ cursor: 'pointer' }}>
-                                    Pending {sortConfig.key === 'pending' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th onClick={() => handleSort('declined')} style={{ cursor: 'pointer' }}>
-                                    Declined {sortConfig.key === 'declined' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th onClick={() => handleSort('conversionRate')} style={{ cursor: 'pointer' }}>
-                                    Conv. Rate {sortConfig.key === 'conversionRate' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredData.length > 0 ? (
-                                filteredData.map(ap => (
-                                    <tr key={ap.apName}>
-                                        <td style={{ fontWeight: '600' }}>{ap.apName}</td>
-                                        <td>PHP {ap.totalANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                        <td>PHP {ap.monthlyANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                        <td>{ap.totalSubmissions}</td>
-                                        <td><span className="status-badge status-issued">{ap.issued}</span></td>
-                                        <td><span className="status-badge status-pending">{ap.pending}</span></td>
-                                        <td><span className="status-badge status-declined">{ap.declined}</span></td>
-                                        <td style={{ fontWeight: '600', color: parseFloat(ap.conversionRate) >= 50 ? '#28a745' : '#e67e22' }}>
-                                            {ap.conversionRate}%
+                <div className="card-body" style={{ padding: 0 }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #efefef' }}>
+                                    {[
+                                        { key: 'apName', label: 'Agent Name' },
+                                        { key: 'totalANP', label: 'Total ANP' },
+                                        { key: 'monthlyANP', label: 'Monthly ANP' },
+                                        { key: 'totalSubmissions', label: 'Apps' },
+                                        { key: 'issued', label: 'Issued' },
+                                        { key: 'pending', label: 'Pending' },
+                                        { key: 'declined', label: 'Declined' },
+                                        { key: 'conversionRate', label: 'Conv. Rate' }
+                                    ].map(col => (
+                                        <th
+                                            key={col.key}
+                                            onClick={() => handleSort(col.key)}
+                                            style={{
+                                                padding: '16px 20px',
+                                                fontSize: '11px',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px',
+                                                fontWeight: '600',
+                                                color: '#7f8c8d',
+                                                cursor: 'pointer',
+                                                userSelect: 'none'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                {col.label}
+                                                {sortConfig.key === col.key && (
+                                                    <span style={{ color: '#3498db' }}>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                                )}
+                                            </div>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredData.length > 0 ? (
+                                    filteredData.map((ap, idx) => (
+                                        <tr
+                                            key={ap.apName}
+                                            style={{
+                                                borderBottom: '1px solid #f1f1f1',
+                                                backgroundColor: idx % 2 === 0 ? '#fff' : '#fafafa',
+                                                transition: 'background-color 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f8ff'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? '#fff' : '#fafafa'}
+                                        >
+                                            <td style={{ padding: '16px 20px', fontWeight: '600', color: '#2c3e50' }}>{ap.apName}</td>
+                                            <td style={{ padding: '16px 20px', color: '#2c3e50', fontWeight: '500' }}>₱ {ap.totalANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                            <td style={{ padding: '16px 20px', color: '#7f8c8d' }}>₱ {ap.monthlyANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                            <td style={{ padding: '16px 20px' }}>{ap.totalSubmissions}</td>
+                                            <td style={{ padding: '16px 20px' }}>
+                                                <span style={{ padding: '4px 10px', borderRadius: '20px', backgroundColor: '#e8f5e9', color: '#2e7d32', fontSize: '12px', fontWeight: '600' }}>
+                                                    {ap.issued}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '16px 20px' }}>
+                                                <span style={{ padding: '4px 10px', borderRadius: '20px', backgroundColor: '#fff3e0', color: '#ef6c00', fontSize: '12px', fontWeight: '600' }}>
+                                                    {ap.pending}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '16px 20px' }}>
+                                                {ap.declined > 0 ? (
+                                                    <span style={{ padding: '4px 10px', borderRadius: '20px', backgroundColor: '#ffebee', color: '#c62828', fontSize: '12px', fontWeight: '600' }}>
+                                                        {ap.declined}
+                                                    </span>
+                                                ) : <span style={{ color: '#ccc' }}>-</span>}
+                                            </td>
+                                            <td style={{ padding: '16px 20px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{ flex: 1, height: '6px', backgroundColor: '#eee', borderRadius: '3px', width: '60px' }}>
+                                                        <div style={{
+                                                            height: '100%',
+                                                            borderRadius: '3px',
+                                                            width: `${Math.min(ap.conversionRate, 100)}%`,
+                                                            backgroundColor: parseFloat(ap.conversionRate) >= 50 ? '#2ecc71' : '#f39c12'
+                                                        }} />
+                                                    </div>
+                                                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#555' }}>
+                                                        {ap.conversionRate}%
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="8" style={{ textAlign: 'center', padding: '60px', color: '#95a5a6' }}>
+                                            <div style={{ fontSize: '24px', marginBottom: '10px' }}>🔍</div>
+                                            {searchTerm ? 'No matching agency partners found.' : 'No performance data available.'}
                                         </td>
                                     </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                                        {searchTerm ? 'No matching agency partners found.' : 'No performance data available.'}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 
