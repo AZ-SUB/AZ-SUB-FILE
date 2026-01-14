@@ -77,24 +77,30 @@ const DocHistoryPage = () => {
     return (
         <div className="card">
             <div className="card-header">
-                <div className="history-header-controls">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
                     <div>
                         <h2 style={{ margin: '0 0 8px 0' }}>Document Submission History</h2>
                         <p style={{ margin: 0, fontSize: '14px', color: '#6c757d' }}>
                             Review and manage all document submissions
                         </p>
                     </div>
-                    <div className="history-search-group">
-                        <div className="search-input-wrapper">
-                            <input
-                                type="text"
-                                placeholder="🔍 Search client, serial, or policy..."
-                                value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                                onFocus={(e) => e.target.style.borderColor = '#0055b8'}
-                                onBlur={(e) => e.target.style.borderColor = '#e9ecef'}
-                            />
-                        </div>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input
+                            type="text"
+                            placeholder="🔍 Search client, serial, or policy..."
+                            value={searchTerm}
+                            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                            style={{
+                                padding: '10px 15px',
+                                borderRadius: '8px',
+                                border: '2px solid #e9ecef',
+                                width: '280px',
+                                fontSize: '14px',
+                                transition: 'all 0.3s'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#0055b8'}
+                            onBlur={(e) => e.target.style.borderColor = '#e9ecef'}
+                        />
                         <select
                             value={statusFilter}
                             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
@@ -120,7 +126,14 @@ const DocHistoryPage = () => {
             </div>
             <div className="card-body">
                 {currentItems.length === 0 ? (
-                    <div className="empty-state">
+                    <div style={{
+                        textAlign: 'center',
+                        padding: '80px 20px',
+                        color: '#6c757d',
+                        background: '#f8f9fa',
+                        borderRadius: '12px',
+                        border: '2px dashed #dee2e6'
+                    }}>
                         <div style={{ fontSize: '48px', marginBottom: '15px' }}>📄</div>
                         <h3 style={{ color: '#495057', marginBottom: '8px' }}>No submissions found</h3>
                         <p style={{ margin: 0, fontSize: '14px' }}>
@@ -131,14 +144,37 @@ const DocHistoryPage = () => {
                     </div>
                 ) : (
                     <>
-                        <div className="doc-grid">
+                        <div style={{ display: 'grid', gap: '20px' }}>
                             {currentItems.map(item => {
                                 const statusStyle = getStatusStyle(item.status || 'Pending');
 
                                 return (
-                                    <div key={item.id} className="doc-card" style={{ borderLeft: `5px solid ${statusStyle.border}` }}>
+                                    <div key={item.id} style={{
+                                        background: 'white',
+                                        border: '2px solid #e9ecef',
+                                        borderRadius: '12px',
+                                        padding: '24px',
+                                        transition: 'all 0.3s',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                                        borderLeft: `5px solid ${statusStyle.border}`
+                                    }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.1)';
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                        }}>
                                         {/* Header: Name & Status */}
-                                        <div className="doc-card-header">
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'flex-start',
+                                            marginBottom: '20px',
+                                            paddingBottom: '15px',
+                                            borderBottom: '2px solid #f8f9fa'
+                                        }}>
                                             <div>
                                                 <div style={{
                                                     fontSize: '20px',
@@ -181,20 +217,34 @@ const DocHistoryPage = () => {
                                         </div>
 
                                         {/* Body: Information Grid */}
-                                        <div className="doc-info-grid" style={{ marginBottom: item.status === 'Pending' ? '20px' : '0' }}>
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                            gap: '20px',
+                                            marginBottom: item.status === 'Pending' ? '20px' : '0'
+                                        }}>
                                             <div>
-                                                <div className="info-label">Serial Number</div>
-                                                <div className="table-serial-badge">
+                                                <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Serial Number</div>
+                                                <div style={{
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: '700',
+                                                    fontSize: '15px',
+                                                    color: '#003781',
+                                                    background: '#e3f2fd',
+                                                    padding: '8px 12px',
+                                                    borderRadius: '6px',
+                                                    display: 'inline-block'
+                                                }}>
                                                     {item.serial_number}
                                                 </div>
                                             </div>
                                             <div>
-                                                <div className="info-label">Policy Type</div>
-                                                <div className="info-value">{item.policy_type}</div>
+                                                <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Policy Type</div>
+                                                <div style={{ fontWeight: '600', fontSize: '15px', color: '#495057' }}>{item.policy_type}</div>
                                             </div>
                                             <div>
-                                                <div className="info-label">Submission Date</div>
-                                                <div className="info-value">
+                                                <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Submission Date</div>
+                                                <div style={{ fontSize: '14px', color: '#495057' }}>
                                                     {new Date(item.created_at).toLocaleDateString('en-US', {
                                                         year: 'numeric',
                                                         month: 'long',
@@ -203,11 +253,11 @@ const DocHistoryPage = () => {
                                                 </div>
                                             </div>
                                             <div>
-                                                <div className="info-label">Agency</div>
-                                                <div className="info-value" style={{ fontWeight: '500' }}>{item.agency || 'N/A'}</div>
+                                                <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Agency</div>
+                                                <div style={{ fontSize: '14px', color: '#495057', fontWeight: '500' }}>{item.agency || 'N/A'}</div>
                                             </div>
                                             <div>
-                                                <div className="info-label">Form Type</div>
+                                                <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Form Type</div>
                                                 <div style={{
                                                     fontSize: '14px',
                                                     fontWeight: '700',
@@ -219,8 +269,8 @@ const DocHistoryPage = () => {
                                                 }}>{item.form_type}</div>
                                             </div>
                                             <div>
-                                                <div className="info-label">Payment Mode</div>
-                                                <div className="info-value">{item.mode_of_payment || 'N/A'}</div>
+                                                <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Payment Mode</div>
+                                                <div style={{ fontSize: '14px', color: '#495057' }}>{item.mode_of_payment || 'N/A'}</div>
                                             </div>
                                         </div>
 
@@ -302,28 +352,92 @@ const DocHistoryPage = () => {
 
                         {/* --- ENHANCED PAGINATION CONTROLS --- */}
                         {totalPages > 1 && (
-                            <div className="pagination-container">
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginTop: '30px',
+                                padding: '20px',
+                                background: '#f8f9fa',
+                                borderRadius: '10px'
+                            }}>
                                 <div style={{ fontSize: '14px', color: '#6c757d', fontWeight: 500 }}>
                                     Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, submissions.length)} of {submissions.length} submissions
                                 </div>
 
-                                <div className="pagination-controls">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <button
-                                        className="pagination-btn"
                                         onClick={() => handlePageChange(currentPage - 1)}
                                         disabled={currentPage === 1}
+                                        style={{
+                                            padding: '10px 20px',
+                                            backgroundColor: currentPage === 1 ? '#e9ecef' : '#0055b8',
+                                            color: currentPage === 1 ? '#adb5bd' : 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                            fontWeight: 600,
+                                            fontSize: '14px',
+                                            transition: 'all 0.3s',
+                                            boxShadow: currentPage === 1 ? 'none' : '0 2px 4px rgba(0,85,184,0.2)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (currentPage !== 1) {
+                                                e.target.style.backgroundColor = '#004494';
+                                                e.target.style.transform = 'translateY(-2px)';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (currentPage !== 1) {
+                                                e.target.style.backgroundColor = '#0055b8';
+                                                e.target.style.transform = 'translateY(0)';
+                                            }
+                                        }}
                                     >
                                         ← Previous
                                     </button>
 
-                                    <div className="page-info">
+                                    <div style={{
+                                        padding: '10px 20px',
+                                        background: 'white',
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        fontWeight: '700',
+                                        color: '#0055b8',
+                                        border: '2px solid #0055b8',
+                                        minWidth: '120px',
+                                        textAlign: 'center'
+                                    }}>
                                         Page {currentPage} of {totalPages}
                                     </div>
 
                                     <button
-                                        className="pagination-btn"
                                         onClick={() => handlePageChange(currentPage + 1)}
                                         disabled={currentPage === totalPages}
+                                        style={{
+                                            padding: '10px 20px',
+                                            backgroundColor: currentPage === totalPages ? '#e9ecef' : '#0055b8',
+                                            color: currentPage === totalPages ? '#adb5bd' : 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                            fontWeight: 600,
+                                            fontSize: '14px',
+                                            transition: 'all 0.3s',
+                                            boxShadow: currentPage === totalPages ? 'none' : '0 2px 4px rgba(0,85,184,0.2)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (currentPage !== totalPages) {
+                                                e.target.style.backgroundColor = '#004494';
+                                                e.target.style.transform = 'translateY(-2px)';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (currentPage !== totalPages) {
+                                                e.target.style.backgroundColor = '#0055b8';
+                                                e.target.style.transform = 'translateY(0)';
+                                            }
+                                        }}
                                     >
                                         Next →
                                     </button>

@@ -19,6 +19,10 @@ const ClientsPage = () => {
     const [selectedYear, setSelectedYear] = useState('All');
     const [availableYears, setAvailableYears] = useState([]);
 
+    // --- NEW: State for Payment Confirmation Modal ---
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [policyToConfirm, setPolicyToConfirm] = useState(null);
+
     // Track processing actions
     const [processingIds, setProcessingIds] = useState(new Set());
 
@@ -46,7 +50,7 @@ const ClientsPage = () => {
                         if (status === 'issued' || showAll) {
                             policies.push({
                                 ...s,
-                                id: s.id || s.sub_id,
+                                id: s.sub_id || s.id, // Ensure ID is present
                                 clientName: `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.username || 'Unknown Client',
                                 clientEmail: c.email || 'No Email',
                                 client_id: c.id
@@ -145,26 +149,47 @@ const ClientsPage = () => {
 
     const markPaid = async (id, e) => {
         e.stopPropagation();
-        if (!confirm('Confirm payment received?')) return;
+        // Show confirmation modal instead of browser confirm
+        setPolicyToConfirm(id);
+        setShowConfirmModal(true);
+    };
 
-        setProcessingIds(prev => new Set(prev).add(id));
+    const confirmPayment = async () => {
+        if (!policyToConfirm) return;
+
+        setProcessingIds(prev => new Set(prev).add(policyToConfirm));
+        // Don't close modal yet, let the button show "Processing..."
 
         try {
-            const res = await api.markPolicyPaid(id);
+            const res = await api.markPolicyPaid(policyToConfirm);
+
+            // Only close modal on success or after attempt
+            setShowConfirmModal(false);
+
             if (res.success) {
                 alert(`Payment Recorded! New Due Date: ${res.nextDate}`);
                 await handleRefresh();
+            } else {
+                // Display the actual error message from backend
+                alert('Error recording payment: ' + (res.message || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error marking policy as paid:', error);
+            setShowConfirmModal(false);
             alert('Error recording payment: ' + (error.message || 'Unknown error'));
         } finally {
             setProcessingIds(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(id);
+                newSet.delete(policyToConfirm);
                 return newSet;
             });
+            setPolicyToConfirm(null);
         }
+    };
+
+    const cancelPayment = () => {
+        setShowConfirmModal(false);
+        setPolicyToConfirm(null);
     };
 
     // --- UPDATED: Open Modal with Full Policy Object ---
@@ -295,10 +320,7 @@ const ClientsPage = () => {
                                                             <td>{displayDate}</td>
                                                             <td>PHP {parseFloat(p.premium_paid).toLocaleString()}</td>
                                                             <td>
-                                                                {/* Display Paid Status if True */}
-                                                                {p.is_paid ? (
-                                                                    <span className="status-badge" style={{ backgroundColor: '#28a745', color: 'white' }}>✅ Paid</span>
-                                                                ) : p.status !== 'Issued' ? (
+                                                                {p.status !== 'Issued' ? (
                                                                     <span className="status-badge status-pending" style={{ fontSize: '10px' }}>{p.status}</span>
                                                                 ) : isOver ? (
                                                                     <span className="status-overdue">⚠ OVERDUE</span>
@@ -387,7 +409,7 @@ const ClientsPage = () => {
                                 display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px',
                                 backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6'
                             }}>
-                                {/* Client Name Field */}
+                                {/* ADDED: Client Name Field */}
                                 <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '5px' }}>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Client Name</small>
                                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c3e50' }}>
@@ -409,97 +431,53 @@ const ClientsPage = () => {
                                     </div>
                                 </div>
 
-                                {/* ADDED: Policy Proposal Date */}
-                                <div>
-                                    <small style={{ color: '#666', fontWeight: 600 }}>Policy Proposal Date</small>
-                                    <div style={{ fontWeight: 500 }}>
-                                        {selectedPolicy.issued_at ? new Date(selectedPolicy.issued_at).toLocaleDateString() : 'N/A'}
-                                    </div>
-                                </div>
-
-                                {/* ADDED: Date Issued (Uses new column 'date_issued') */}
-                                <div>
-                                    <small style={{ color: '#666', fontWeight: 600 }}>Date Issued</small>
-                                    <div style={{ fontWeight: 500 }}>
-                                        {selectedPolicy.status === 'Issued' && selectedPolicy.date_issued
-                                            ? new Date(selectedPolicy.date_issued).toLocaleDateString()
-                                            : '-'}
-                                    </div>
-                                </div>
-
                                 <div>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Policy Type</small>
                                     <div style={{ fontWeight: 500 }}>{selectedPolicy.policy_type}</div>
                                 </div>
                                 <div>
+                                    <small style={{ color: '#666', fontWeight: 600 }}>Premium</small>
+                                    <div style={{ fontWeight: 500 }}>PHP {parseFloat(selectedPolicy.premium_paid).toLocaleString()}</div>
+                                </div>
+
+                                <div>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Mode of Payment</small>
                                     <div>{selectedPolicy.mode_of_payment}</div>
                                 </div>
-
                                 <div>
-                                    <small style={{ color: '#666', fontWeight: 600 }}>Premium Paid</small>
-                                    <div style={{ fontWeight: 500 }}>PHP {parseFloat(selectedPolicy.premium_paid || 0).toLocaleString()}</div>
-                                </div>
-                                <div>
-                                    <small style={{ color: '#666', fontWeight: 600 }}>Annualized Premium (ANP)</small>
-                                    <div style={{ fontWeight: 500, color: '#28a745' }}>PHP {parseFloat(selectedPolicy.anp || 0).toLocaleString()}</div>
-                                </div>
-
-                                <div style={{ gridColumn: '1 / -1' }}>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Agency</small>
                                     <div>{selectedPolicy.agency || '-'}</div>
                                 </div>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px' }}>
-                                <div style={{ padding: '10px', background: '#fff3cd', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '20px' }}>
+                                <div style={{ padding: '10px', background: '#e3f2fd', borderRadius: '6px' }}>
+                                    <small style={{ color: '#0055b8', fontWeight: 700 }}>Submitted On</small>
+                                    <div style={{ fontSize: '13px' }}>
+                                        {selectedPolicy.created_at ? new Date(selectedPolicy.created_at).toLocaleDateString() : 'N/A'}
+                                    </div>
+                                </div>
+                                <div style={{ padding: '10px', background: '#d4edda', borderRadius: '6px' }}>
+                                    <small style={{ color: '#155724', fontWeight: 700 }}>Issued On</small>
+                                    <div style={{ fontSize: '13px' }}>
+                                        {selectedPolicy.status === 'Issued' ?
+                                            (selectedPolicy.date_issued ? new Date(selectedPolicy.date_issued).toLocaleDateString() : 'N/A')
+                                            : '-'}
+                                    </div>
+                                </div>
+                                <div style={{ padding: '10px', background: '#fff3cd', borderRadius: '6px' }}>
                                     <small style={{ color: '#856404', fontWeight: 700 }}>Next Due</small>
                                     <div style={{ fontSize: '13px', fontWeight: 'bold' }}>
                                         {selectedPolicy.next_payment_date ? new Date(selectedPolicy.next_payment_date).toLocaleDateString() : 'N/A'}
                                     </div>
                                 </div>
-                                <div style={{ padding: '10px', background: '#d4edda', borderRadius: '6px', textAlign: 'center' }}>
-                                    <small style={{ color: '#155724', fontWeight: 700 }}>Payment Status</small>
-                                    <div style={{ fontSize: '13px', fontWeight: 'bold' }}>
-                                        {selectedPolicy.is_paid ? 'Paid' : 'Unpaid'}
-                                    </div>
-                                </div>
                             </div>
 
-                            {/* 3. PAYMENT HISTORY (NEW SECTION) */}
-                            <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                                💳 Payment History
-                            </h3>
-                            <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                                {selectedPolicy.payment_history && selectedPolicy.payment_history.length > 0 ? (
-                                    <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
-                                        <thead>
-                                            <tr style={{ textAlign: 'left', color: '#666' }}>
-                                                <th style={{ padding: '5px' }}>Date Paid</th>
-                                                <th style={{ padding: '5px' }}>Period Covered</th>
-                                                <th style={{ padding: '5px' }}>Amount</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {selectedPolicy.payment_history.map(h => (
-                                                <tr key={h.payment_id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                                    <td style={{ padding: '5px' }}>{new Date(h.payment_date).toLocaleDateString()}</td>
-                                                    <td style={{ padding: '5px' }}>{h.period_covered ? new Date(h.period_covered).toLocaleDateString() : '-'}</td>
-                                                    <td style={{ padding: '5px' }}>PHP {parseFloat(h.amount).toLocaleString()}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                ) : (
-                                    <p style={{ color: '#999', fontSize: '13px', fontStyle: 'italic' }}>No payment history recorded.</p>
-                                )}
-                            </div>
-
-                            {/* 4. ATTACHMENTS LIST */}
+                            {/* 2. ATTACHMENTS LIST */}
                             <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
                                 📎 Attached Files
                             </h3>
-                            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                            <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                                 {selectedPolicy.attachments && selectedPolicy.attachments.length > 0 ? (
                                     <ul style={{ listStyle: 'none', padding: 0 }}>
                                         {selectedPolicy.attachments.map((file, idx) => (
@@ -523,7 +501,71 @@ const ClientsPage = () => {
                                 )}
                             </div>
 
+                            {/* 3. PAYMENT HISTORY (ADDED) */}
+                            <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+                                💳 Payment History
+                            </h3>
+                            <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                    <thead style={{ backgroundColor: '#f8f9fa', position: 'sticky', top: 0 }}>
+                                        <tr>
+                                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Paid On</th>
+                                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Period Covered</th>
+                                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedPolicy.payment_history && selectedPolicy.payment_history.length > 0 ? (
+                                            selectedPolicy.payment_history
+                                                .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
+                                                .map((hist, idx) => (
+                                                    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {new Date(hist.payment_date).toLocaleDateString()}
+                                                            <div style={{ fontSize: '10px', color: '#999' }}>
+                                                                {new Date(hist.payment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {hist.period_covered ? new Date(hist.period_covered).toLocaleDateString() : '-'}
+                                                        </td>
+                                                        <td style={{ padding: '8px', fontWeight: 600, color: '#28a745' }}>
+                                                            PHP {parseFloat(hist.amount).toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="3" style={{ padding: '15px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>
+                                                    No payment history found.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
                             <div style={{ textAlign: 'right', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
+                                {/* Added Mark Paid Button to Details Modal */}
+                                {selectedPolicy.status !== 'Issued' && (
+                                    <button
+                                        onClick={(e) => {
+                                            setShowDetailsModal(false);
+                                            markPaid(selectedPolicy.id, e);
+                                        }}
+                                        style={{
+                                            padding: '8px 20px',
+                                            backgroundColor: '#28a745',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            marginRight: '10px'
+                                        }}
+                                    >
+                                        Mark as Paid
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setShowDetailsModal(false)}
                                     style={{
@@ -531,6 +573,86 @@ const ClientsPage = () => {
                                     }}
                                 >
                                     Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* --- NEW: PAYMENT CONFIRMATION MODAL --- */}
+            {showConfirmModal && ReactDOM.createPortal(
+                <div onClick={!processingIds.has(policyToConfirm) ? cancelPayment : undefined} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    zIndex: 10001,
+                    margin: 0,
+                    padding: '20px'
+                }}>
+                    <div className="modal-content" style={{
+                        maxWidth: '450px',
+                        width: '100%',
+                        margin: 'auto',
+                        position: 'relative'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Confirm Payment</h2>
+                            {!processingIds.has(policyToConfirm) && (
+                                <span className="close-modal" onClick={cancelPayment}>&times;</span>
+                            )}
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: '16px', marginBottom: '20px', color: '#495057' }}>
+                                Are you sure you want to mark this payment as received?
+                            </p>
+                            <p style={{ fontSize: '14px', color: '#6c757d', marginBottom: '25px' }}>
+                                This will record the payment and update the next due date.
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={cancelPayment}
+                                    disabled={processingIds.has(policyToConfirm)}
+                                    style={{
+                                        padding: '10px 24px',
+                                        backgroundColor: '#6c757d',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: processingIds.has(policyToConfirm) ? 'not-allowed' : 'pointer',
+                                        fontSize: '14px',
+                                        fontWeight: '500',
+                                        opacity: processingIds.has(policyToConfirm) ? 0.6 : 1
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmPayment}
+                                    disabled={processingIds.has(policyToConfirm)}
+                                    style={{
+                                        padding: '10px 24px',
+                                        backgroundColor: '#28a745',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: processingIds.has(policyToConfirm) ? 'not-allowed' : 'pointer',
+                                        fontSize: '14px',
+                                        fontWeight: '500',
+                                        opacity: processingIds.has(policyToConfirm) ? 0.6 : 1,
+                                        minWidth: '140px'
+                                    }}
+                                >
+                                    {processingIds.has(policyToConfirm) ? 'Processing...' : 'Confirm Payment'}
                                 </button>
                             </div>
                         </div>
