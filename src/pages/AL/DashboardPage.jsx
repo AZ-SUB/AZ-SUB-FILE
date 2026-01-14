@@ -50,17 +50,26 @@ const DashboardPage = () => {
 
             monitoringData.forEach(item => {
                 if (item.status === 'Issued') {
-                    const anpVal = parseFloat(item.anp) || 0;
-                    totalANP += anpVal;
+                    // 1. Total ANP = Full Premium Paid
+                    const totalPremium = parseFloat(item.premium_paid) || 0;
+                    totalANP += totalPremium;
                     issued++;
+
+                    // 2. Calculate Modal/Installment Premium
+                    let modalPremium = totalPremium;
+                    const mode = (item.mode_of_payment || '').trim();
+                    if (mode === 'Monthly') modalPremium = totalPremium / 12;
+                    else if (mode === 'Quarterly') modalPremium = totalPremium / 4;
+                    else if (mode === 'Semi-Annual') modalPremium = totalPremium / 2;
 
                     const dDate = new Date(item.created_at);
                     if (!isNaN(dDate)) {
                         if (dDate.getMonth() === currentMonth && dDate.getFullYear() === currentYear) {
-                            monthlyANP += anpVal;
+                            monthlyANP += modalPremium;
                         }
                         const monthKey = `${dDate.getFullYear()}-${String(dDate.getMonth() + 1).padStart(2, '0')}`;
-                        historyAgg[monthKey] = (historyAgg[monthKey] || 0) + anpVal;
+                        // Historical graph uses Monthly/Installment value to show cleaner trend
+                        historyAgg[monthKey] = (historyAgg[monthKey] || 0) + modalPremium;
                     }
                 } else if (item.status === 'Declined') declined++;
                 else pending++;
