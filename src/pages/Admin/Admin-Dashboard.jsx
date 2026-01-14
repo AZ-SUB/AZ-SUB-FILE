@@ -21,7 +21,7 @@ const AdminDashboard = () => {
 
       if (!session) {
         alert("You need to login first");
-        navigate("/");
+        navigate("/login");
         return;
       }
 
