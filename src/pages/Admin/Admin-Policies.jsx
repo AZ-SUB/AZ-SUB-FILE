@@ -53,14 +53,32 @@ const AdminPolicies = () => {
 
     const fetchPolicies = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from("policy")
-            .select("*")
-            .order("policy_id", { ascending: false }); // Show newest first? Or alphabetical?
+        try {
+            console.log("Fetching policies from database...");
+            const { data, error } = await supabase
+                .from("policy")
+                .select("*")
+                .order("policy_id", { ascending: false });
 
-        if (error) console.error("Error fetching policies:", error);
-        else setPolicies(data || []);
-        setLoading(false);
+            if (error) {
+                console.error("Error fetching policies:", error);
+                console.error("Error details:", {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code
+                });
+                alert(`Failed to fetch policies: ${error.message}\n\nThis might be due to Row Level Security (RLS) policies. Please check your Supabase configuration.`);
+            } else {
+                console.log("Policies fetched successfully:", data);
+                setPolicies(data || []);
+            }
+        } catch (err) {
+            console.error("Unexpected error:", err);
+            alert(`Unexpected error: ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Handle Form Input
