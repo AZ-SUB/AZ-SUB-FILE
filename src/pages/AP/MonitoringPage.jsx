@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import api from '../../services/api';
 import { calculateANP } from '../../utils/calculations';
 
 const MonitoringPage = () => {
-    const { loadMonitoringData } = useApp();
+    const { loadMonitoringData, currentUser } = useApp();
 
     // --- 1. CONFIGURATION ---
     const MANUAL_POLICIES = ['Eazy Health', 'Allianz Fundamental Cover', 'Allianz Secure Pro'];
@@ -35,6 +35,19 @@ const MonitoringPage = () => {
 
     // Derived State
     const isManualPolicy = MANUAL_POLICIES.includes(formData.policyType);
+
+    // Auto-fill from Current User
+    useEffect(() => {
+        if (currentUser) {
+            setFormData(prev => ({
+                ...prev,
+                intermediaryName: currentUser.name || `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
+                intermediaryEmail: currentUser.email || '',
+                // If agency is available in currentUser, set it. Otherwise keep default or 'Others'
+                agency: currentUser.agency || prev.agency
+            }));
+        }
+    }, [currentUser]);
 
     // --- 3. HANDLERS ---
 
@@ -103,7 +116,11 @@ const MonitoringPage = () => {
             // 3. Submit Data
             setMessage(`Submitting with Serial: ${finalSerial}...`);
 
-            const payload = { ...formData, serialNumber: finalSerial };
+            const payload = {
+                ...formData,
+                serialNumber: finalSerial,
+                profileId: currentUser?.id // Explicitly link to current user profile
+            };
             const response = await api.submitMonitoring(payload);
 
             if (response.success) {
@@ -188,13 +205,13 @@ const MonitoringPage = () => {
 
                         <div className="form-group">
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#344054', marginBottom: '6px', display: 'block' }}>Intermediary Name</label>
-                            <input name="intermediaryName" value={formData.intermediaryName} onChange={handleChange} required style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #d0d5dd', boxShadow: '0 1px 2px rgba(16,24,40,0.05)', fontSize: '14px', color: '#101828' }} />
+                            <input name="intermediaryName" value={formData.intermediaryName} onChange={handleChange} required readOnly style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #d0d5dd', boxShadow: '0 1px 2px rgba(16,24,40,0.05)', fontSize: '14px', color: '#667085', backgroundColor: '#f9fafb', cursor: 'not-allowed' }} />
                         </div>
 
                         {/* Row 2 */}
                         <div className="form-group">
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#344054', marginBottom: '6px', display: 'block' }}>Intermediary Email</label>
-                            <input type="email" name="intermediaryEmail" value={formData.intermediaryEmail} onChange={handleChange} required style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #d0d5dd', boxShadow: '0 1px 2px rgba(16,24,40,0.05)', fontSize: '14px', color: '#101828' }} />
+                            <input type="email" name="intermediaryEmail" value={formData.intermediaryEmail} onChange={handleChange} required readOnly style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #d0d5dd', boxShadow: '0 1px 2px rgba(16,24,40,0.05)', fontSize: '14px', color: '#667085', backgroundColor: '#f9fafb', cursor: 'not-allowed' }} />
                         </div>
 
                         <div className="form-group">
