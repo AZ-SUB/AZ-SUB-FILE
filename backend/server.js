@@ -434,11 +434,6 @@ app.get('/api/monitoring/all', async (req, res) => {
 
 // --- UPDATED CUSTOMERS ENDPOINT (FIXED BLANK DATA) ---
 app.get('/api/customers', async (req, res) => {
-<<<<<<< Updated upstream
-  // FIX: select(..., agency(name)) based on SCHEMA
-  const { data } = await supabase.from('az_submissions')
-    .select(`*, policy (policy_type), serial_number (serial_number), users (agency(name))`);
-=======
   // FIX: select(..., payment_history(*)) to include history
   let query = supabase.from('az_submissions')
     .select(`*, policy (policy_type), serial_number (serial_number), agency(name), payment_history(*)`);
@@ -448,7 +443,6 @@ app.get('/api/customers', async (req, res) => {
   }
 
   const { data } = await query;
->>>>>>> Stashed changes
 
   const map = {};
   (data || []).forEach(s => {
@@ -468,12 +462,8 @@ app.get('/api/customers', async (req, res) => {
         ...s,
         policy_type: s.policy?.policy_type,
         serial_number: s.serial_number?.serial_number,
-<<<<<<< Updated upstream
-        agency: s.users?.agency?.name // Use 'name' from Agency
-=======
         agency: s.agency?.name, // Use 'name' from Agency/Direct
         payment_history: s.payment_history || [] // Ensure array
->>>>>>> Stashed changes
       };
 
       map[s.client_email].submissions.push(flatSubmission);
@@ -484,7 +474,13 @@ app.get('/api/customers', async (req, res) => {
 
 app.patch('/api/form-submissions/:id/status', async (req, res) => {
   const { id } = req.params; const { status } = req.body;
-  await supabase.from('az_submissions').update({ status }).eq('sub_id', id);
+
+  const updateData = { status };
+  if (status === 'Issued') {
+    updateData.date_issued = new Date().toISOString();
+  }
+
+  await supabase.from('az_submissions').update(updateData).eq('sub_id', id);
   res.json({ success: true });
 });
 app.post('/api/submissions/:id/pay', async (req, res) => {
@@ -492,26 +488,98 @@ app.post('/api/submissions/:id/pay', async (req, res) => {
     const { id } = req.params;
     const { data: policy } = await supabase.from('az_submissions').select('*').eq('sub_id', id).limit(1).maybeSingle();
     if (!policy) return res.status(404).json({ success: false, message: 'Not found' });
+
+    // 1. Record in History
+    // Parse amount to ensure numeric (remove commas if string, etc)
+    let safeAmount = 0;
+    if (policy.premium_paid) {
+      safeAmount = typeof policy.premium_paid === 'string'
+        ? parseFloat(policy.premium_paid.replace(/,/g, ''))
+        : parseFloat(policy.premium_paid);
+    }
+
+    const historyPayload = {
+      sub_id: id,
+      amount: safeAmount || 0,
+      period_covered: policy.next_payment_date,
+      payment_date: new Date().toISOString()
+    };
+    console.log('Inserting History:', historyPayload);
+
+    const { error: histError } = await supabase.from('payment_history').insert([historyPayload]);
+
+    if (histError) {
+      console.error('History Insert Error:', histError);
+      throw new Error('Failed to record payment history: ' + histError.message);
+    }
+    else console.log('History Insert Success');
+
+    // 2. Rollover Date
     const newDueDate = calculateNextPaymentDate(policy.next_payment_date, policy.mode_of_payment);
-    await supabase.from('az_submissions').update({ next_payment_date: newDueDate }).eq('sub_id', id);
+
+    // 3. Update Submission (Reset is_paid to false for next cycle)
+    await supabase.from('az_submissions').update({
+      next_payment_date: newDueDate,
+      is_paid: false
+    }).eq('sub_id', id);
+
     res.json({ success: true, message: 'Paid', nextDate: newDueDate });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+  } catch (e) {
+    console.error('PAY ENDPOINT ERROR:', e);
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
 
 // Performance endpoint for AL dashboard
 app.get('/api/performance/all', async (req, res) => {
   try {
+    const { profileId } = req.query;
+    let subordinateIds = [];
+
+    // 1. If explicit profileId (AL/Leader), fetch their team (AP hierarchy)
+    if (profileId) {
+      const { data: team, error: teamError } = await supabase
+        .from('user_hierarchy')
+        .select('user_id')
+        .eq('report_to_id', profileId)
+        .eq('is_active', true);
+
+      if (teamError) throw teamError;
+
+      if (team && team.length > 0) {
+        subordinateIds = team.map(t => t.user_id);
+      } else {
+        // No team members found
+        return res.json({
+          success: true,
+          data: {
+            performanceByAP: [],
+            teamStats: {
+              totalTeamANP: 0, totalMonthlyANP: 0, totalSubmissions: 0,
+              totalIssued: 0, totalPending: 0, totalDeclined: 0, averageConversionRate: 0
+            }
+          }
+        });
+      }
+    }
+
+    // 2. Query Submissions
     let query = supabase
       .from('az_submissions')
-      .select('*')
+      .select('*, profiles (first_name, last_name)') // Join to get Agent Name
       .order('issued_at', { ascending: false });
 
-    if (req.query.profileId) {
-      query = query.eq('profile_id', req.query.profileId);
+    if (subordinateIds.length > 0) {
+      query = query.in('profile_id', subordinateIds);
+    } else if (profileId) {
+      // Fallback: If profileId was provided but matched no hierarchy (and we didn't return early),
+      // it means they have no team. Logic above handles this, but as safety:
+      query = query.eq('profile_id', profileId); // Only show their own sales if no team?
+      // Actually the requirement is "I assigned ap", so specific to team.
+      // We'll stick to the early return above for empty team.
     }
 
     const { data: submissions, error } = await query;
-
     if (error) throw error;
 
     const performanceByAP = {};
@@ -529,9 +597,14 @@ app.get('/api/performance/all', async (req, res) => {
     let apCountForConversion = 0;
 
     submissions.forEach(sub => {
-      // Use submission_type as AP Name
-      // Logic adjustment: The frontend seems to treat 'submission_type' as AP Name based on previous code
-      const apName = sub.submission_type || 'Unknown';
+      // Determine AP Name
+      // Prefer Profile Name, fallback to submission_type only if profile missing (legacy data)
+      let apName = 'Unknown Agent';
+      if (sub.profiles) {
+        apName = `${sub.profiles.first_name} ${sub.profiles.last_name}`.trim();
+      } else if (sub.submission_type) {
+        apName = sub.submission_type; // Fallback
+      }
 
       if (!performanceByAP[apName]) {
         performanceByAP[apName] = {
