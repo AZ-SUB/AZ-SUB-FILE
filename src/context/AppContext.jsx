@@ -26,6 +26,16 @@ export const AppProvider = ({ children }) => {
         loadUser();
     }, []);
 
+    // Load data once user is authenticated
+    useEffect(() => {
+        if (currentUser) {
+            loadMonitoringData();
+            loadFormSubmissions();
+            loadCustomers();
+            loadPerformanceData();
+        }
+    }, [currentUser]);
+
     const loadUser = async () => {
         try {
             const res = await api.getCurrentUser();
@@ -58,7 +68,7 @@ export const AppProvider = ({ children }) => {
 
     const loadMonitoringData = async () => {
         try {
-            const res = await api.getAllMonitoring();
+            const res = await api.getAllMonitoring(currentUser?.id);
             if (res.success) {
                 setMonitoringData(res.data);
             }
@@ -69,7 +79,7 @@ export const AppProvider = ({ children }) => {
 
     const loadFormSubmissions = async () => {
         try {
-            const res = await api.getAllFormSubmissions();
+            const res = await api.getAllFormSubmissions(currentUser?.id);
             if (res.success) {
                 setFormSubmissions(res.data);
             }
@@ -80,7 +90,7 @@ export const AppProvider = ({ children }) => {
 
     const loadCustomers = async () => {
         try {
-            const res = await api.getAllCustomers();
+            const res = await api.getAllCustomers(currentUser?.id);
             if (res.success) {
                 setCustomers(res.data);
             }
@@ -89,9 +99,9 @@ export const AppProvider = ({ children }) => {
         }
     };
 
-    const loadPerformanceData = async (userId = null) => {
+    const loadPerformanceData = async () => {
         try {
-            const res = await api.getALTeamPerformance(userId);
+            const res = await api.getALTeamPerformance(currentUser?.id);
             if (res.success) {
                 setPerformanceData(res.data);
             }
