@@ -14,6 +14,7 @@ const ManageUsers = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  // Form State
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -21,12 +22,19 @@ const ManageUsers = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [position, setPosition] = useState("MP");
 
+  // Hierarchy State
+  const [reportsTo, setReportsTo] = useState("");
+  const [potentialUplines, setPotentialUplines] = useState([]);
+
   const [modalError, setModalError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
+
   const [viewingUser, setViewingUser] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingSupervisor, setViewingSupervisor] = useState(null);
+  const [viewingSubordinates, setViewingSubordinates] = useState([]);
   const [colleagues, setColleagues] = useState([]);
   const [availableColleagues, setAvailableColleagues] = useState([]);
   const [showAddColleague, setShowAddColleague] = useState(false);
@@ -36,6 +44,12 @@ const ManageUsers = () => {
     fetchUsers();
     getUser();
   }, []);
+
+  useEffect(() => {
+    if (position) {
+      fetchPotentialUplines(position, editingUserId);
+    }
+  }, [position, editingUserId]);
 
   const getUser = async () => {
     const {
@@ -62,7 +76,109 @@ const ManageUsers = () => {
     }
   };
 
-  // Generate password with format: #+(First 2 letters of lastname Uppercase and lowercase)+8080
+  // Fetch Potential Uplines based on Position
+  const fetchPotentialUplines = async (role, excludeUserId = null) => {
+    let uplineRole = "";
+    if (role === "AP") uplineRole = "AL";
+    else if (role === "AL") uplineRole = "MP";
+    // MPs do not report to MDs, and MDs do not report to anyone in this flow
+
+    if (!uplineRole) {
+      setPotentialUplines([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, account_type")
+        .eq("account_type", uplineRole);
+
+      if (error) throw error;
+
+      // Filter out the current user being edited to prevent self-assignment
+      let filteredData = data || [];
+      if (excludeUserId) {
+        filteredData = filteredData.filter(u => u.id !== excludeUserId);
+      }
+
+      setPotentialUplines(filteredData);
+    } catch (err) {
+      console.error("Error fetching uplines:", err.message);
+    }
+  };
+
+  // Fetch current supervisor for a user (for Edit mode)
+  const fetchCurrentUpline = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from("user_hierarchy")
+        .select("report_to_id")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "Row not found"
+        console.error("Error fetching current upline:", error);
+      }
+
+      if (data) {
+        setReportsTo(data.report_to_id);
+      } else {
+        setReportsTo("");
+      }
+    } catch (err) {
+      console.error("Error fetching current upline:", err);
+    }
+  };
+
+  // Fetch hierarchy details for View mode
+  const fetchViewHierarchy = async (userId) => {
+    setViewingSupervisor(null);
+    setViewingSubordinates([]);
+
+    try {
+      // 1. Get Supervisor
+      const { data: uptimeData, error: uptimeError } = await supabase
+        .from("user_hierarchy")
+        .select(`
+                report_to_id,
+                profiles:report_to_id (first_name, last_name, account_type)
+            `)
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .single();
+
+      if (!uptimeError && uptimeData && uptimeData.profiles) {
+        // Handle potential array return from Supabase
+        const profileData = Array.isArray(uptimeData.profiles) ? uptimeData.profiles[0] : uptimeData.profiles;
+        setViewingSupervisor(profileData);
+      }
+
+      // 2. Get Subordinates
+      const { data: downlineData, error: downlineError } = await supabase
+        .from("user_hierarchy")
+        .select(`
+                user_id,
+                profiles:user_id (first_name, last_name, account_type)
+            `)
+        .eq("report_to_id", userId)
+        .eq("is_active", true);
+
+      if (!downlineError && downlineData) {
+        const subs = downlineData.map(d => {
+          const p = d.profiles;
+          return Array.isArray(p) ? p[0] : p;
+        }).filter(Boolean);
+        setViewingSubordinates(subs);
+      }
+
+    } catch (err) {
+      console.error("Error fetching view hierarchy:", err);
+    }
+  };
+
+  // Generate password
   const generatePassword = () => {
     if (!lastName.trim()) {
       setModalError("Please enter last name first");
@@ -75,101 +191,123 @@ const ManageUsers = () => {
     setModalError("");
   };
 
-  // Create user
+  // Create or Update user
   const submitAddUser = async (e) => {
     e.preventDefault();
     setModalError("");
     setSuccessMsg("");
 
-    if (isEditMode) {
-      // Update existing user in profiles table
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          account_type: position,
-        })
-        .eq("id", editingUserId);
+    try {
+      let userIdToProcess = editingUserId;
 
-      if (updateError) {
-        setModalError(updateError.message);
-        return;
-      }
-
-      setSuccessMsg("User updated successfully!");
-      setFirstName("");
-      setLastName("");
-      setEmail("");
-      setPassword("");
-      setPosition("MP");
-      setIsEditMode(false);
-      setEditingUserId(null);
-      fetchUsers();
-      setTimeout(() => setShowModal(false), 1000);
-      return;
-    }
-
-    // Create new user
-    // 1. Create Auth user
-    const { data: authData, error: authError } =
-      await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
+      if (isEditMode) {
+        // Update existing user in profiles table
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({
             first_name: firstName,
             last_name: lastName,
             account_type: position,
-          },
-        },
-      });
+          })
+          .eq("id", editingUserId);
 
-    if (authError) {
-      setModalError(authError.message);
-      return;
+        if (updateError) throw updateError;
+        setSuccessMsg("User updated successfully!");
+
+      } else {
+        // Create new user
+        // 1. Create Auth user
+        const { data: authData, error: authError } =
+          await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                first_name: firstName,
+                last_name: lastName,
+                account_type: position,
+              },
+            },
+          });
+
+        if (authError) throw authError;
+
+        // 2. Insert profile
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert({
+            id: authData.user.id,
+            first_name: firstName,
+            last_name: lastName,
+            email,
+            account_type: position,
+          });
+
+        if (profileError) throw profileError;
+
+        userIdToProcess = authData.user.id;
+        setSuccessMsg("User created successfully!");
+      }
+
+      // Handle Hierarchy (Reports To)
+      // Only if a supervisor is selected and we have a valid userId
+      if (reportsTo && userIdToProcess) {
+        // First, deactivate any existing active relationship for this user
+        await supabase
+          .from("user_hierarchy")
+          .update({ is_active: false })
+          .eq("user_id", userIdToProcess);
+
+        // Insert new relationship
+        const { error: hierarchyError } = await supabase
+          .from("user_hierarchy")
+          .insert({
+            user_id: userIdToProcess,
+            report_to_id: reportsTo,
+            assigned_at: new Date().toISOString(),
+            assigned_by: user.id, // Current admin ID
+            is_active: true
+          });
+
+        if (hierarchyError) {
+          console.error("Hierarchy error details:", hierarchyError);
+          throw new Error("User saved, but failed to assign supervisor: " + hierarchyError.message);
+        }
+      }
+
+      // Reset and Fetch
+      if (!isEditMode) {
+        setFirstName("");
+        setLastName("");
+        setEmail("");
+        setPassword("");
+        setPosition("MP");
+        setReportsTo("");
+      }
+
+      fetchUsers();
+      setTimeout(() => {
+        if (isEditMode) closeModal();
+      }, 1500);
+
+    } catch (err) {
+      setModalError(err.message);
     }
-
-    // 2. Insert profile
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .insert({
-        id: authData.user.id,
-        first_name: firstName,
-        last_name: lastName,
-        email,
-        account_type: position,
-      });
-
-    if (profileError) {
-      setModalError(profileError.message);
-      return;
-    }
-
-    // Reset
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPassword("");
-    setPosition("MP");
-
-    setSuccessMsg("User created successfully!");
-    fetchUsers();
   };
 
   // Open modal for viewing
   const openViewModal = async (userToView) => {
     setViewingUser(userToView);
     setShowViewModal(true);
-    await fetchColleagues(userToView.id);
-    await fetchAvailableColleagues(userToView);
+    await fetchViewHierarchy(userToView.id);
+    // Old colleague-related calls removed
+    // await fetchColleagues(userToView.id);
+    // await fetchAvailableColleagues(userToView);
   };
 
   // Fetch colleagues for the viewing user
   const fetchColleagues = async (userId) => {
     try {
-      // Assuming we have a colleagues/relationships table
-      // For now, we'll filter by position hierarchy
       const { data } = await supabase
         .from("profiles")
         .select("*")
@@ -177,7 +315,6 @@ const ManageUsers = () => {
         .single();
 
       if (data) {
-        // Get users in the same or related positions based on hierarchy
         const position = data.account_type;
         const hierarchy = {
           admin: ["MD", "MP", "AL", "AP"],
@@ -228,7 +365,6 @@ const ManageUsers = () => {
           .neq("id", currentUser.id);
 
         if (!error && data) {
-          // Filter out already added colleagues
           const colleagueIds = colleagues.map(c => c.id);
           const available = data.filter(u => !colleagueIds.includes(u.id));
           setAvailableColleagues(available);
@@ -253,9 +389,6 @@ const ManageUsers = () => {
         setAvailableColleagues(availableColleagues.filter(c => c.id !== selectedColleague));
         setSelectedColleague("");
         setShowAddColleague(false);
-
-        // Here you would save to database if you have a relationships table
-        // await supabase.from("user_relationships").insert({...});
       }
     } catch (err) {
       console.error("Error adding colleague:", err);
@@ -272,7 +405,7 @@ const ManageUsers = () => {
   };
 
   // Open modal for editing
-  const openEditModal = (userToEdit) => {
+  const openEditModal = async (userToEdit) => {
     setIsEditMode(true);
     setEditingUserId(userToEdit.id);
     setFirstName(userToEdit.first_name);
@@ -282,6 +415,11 @@ const ManageUsers = () => {
     setPassword("");
     setModalError("");
     setSuccessMsg("");
+
+    // Fetch hierarchy info
+    await fetchPotentialUplines(userToEdit.account_type, userToEdit.id);
+    await fetchCurrentUpline(userToEdit.id);
+
     setShowModal(true);
   };
 
@@ -293,6 +431,7 @@ const ManageUsers = () => {
     setEmail("");
     setPassword("");
     setPosition("MP");
+    setReportsTo("");
     setIsEditMode(false);
     setEditingUserId(null);
     setModalError("");
@@ -321,7 +460,7 @@ const ManageUsers = () => {
             <i className="fa-solid fa-users"></i> {sidebarOpen && <span>Manage Users</span>}
           </li>
           <li onClick={() => navigate("/admin/policies")}>
-            <i className="fa-solid fa-file-contract"></i> {sidebarOpen && <span>Policies</span>}
+            <i className="fa-solid fa-file-shield"></i> {sidebarOpen && <span>Policies</span>}
           </li>
         </ul>
       </aside>
@@ -458,8 +597,8 @@ const ManageUsers = () => {
                   </div>
                 )}
 
-                {!isEditMode && (
-                  <div className="password-position-row">
+                <div className="password-position-row">
+                  {!isEditMode ? (
                     <div className="input-group">
                       <label>Password</label>
                       <div className="password-input-wrapper">
@@ -478,24 +617,8 @@ const ManageUsers = () => {
                         </button>
                       </div>
                     </div>
+                  ) : null}
 
-                    <div className="input-group">
-                      <label>Position</label>
-                      <select
-                        value={position}
-                        onChange={(e) => setPosition(e.target.value)}
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="MP">Managing Partner (MP)</option>
-                        <option value="AL">Agent Leader (AL)</option>
-                        <option value="AP">Agent Partner (AP)</option>
-                        <option value="MD">Managing Director (MD)</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                {isEditMode && (
                   <div className="input-group">
                     <label>Position</label>
                     <select
@@ -509,7 +632,34 @@ const ManageUsers = () => {
                       <option value="MD">Managing Director (MD)</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Reports To Section - Only show for AP and AL */}
+                {(position === 'AP' || position === 'AL') && (
+                  <div className="input-group" style={{ marginTop: "10px" }}>
+                    <label>Reports To (Supervisor)</label>
+                    <select
+                      value={reportsTo}
+                      onChange={(e) => setReportsTo(e.target.value)}
+                      disabled={potentialUplines.length === 0}
+                    >
+                      <option value="">
+                        {potentialUplines.length === 0 ? "No Supervisor Required/Available" : "-- Select Supervisor --"}
+                      </option>
+                      {potentialUplines.map((upline) => (
+                        <option key={upline.id} value={upline.id}>
+                          {upline.first_name} {upline.last_name} ({upline.account_type})
+                        </option>
+                      ))}
+                    </select>
+                    {potentialUplines.length === 0 && (
+                      <small style={{ color: '#999', marginTop: '5px' }}>
+                        No eligible supervisors found for {position}
+                      </small>
+                    )}
+                  </div>
                 )}
+
 
                 {!isEditMode && (
                   <label className="switch-label">
@@ -547,7 +697,7 @@ const ManageUsers = () => {
       {/* View Modal */}
       {showViewModal && viewingUser && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{ maxWidth: "900px" }}>
+          <div className="modal-box" style={{ maxWidth: "700px" }}>
             <h2 className="modal-title">View User Details</h2>
             <div className="modal-content">
               <div className="name-row">
@@ -557,7 +707,6 @@ const ManageUsers = () => {
                     type="text"
                     value={viewingUser.first_name || ""}
                     readOnly
-                    style={{ background: "#f5f5f5", cursor: "not-allowed" }}
                   />
                 </div>
                 <div className="input-group">
@@ -566,7 +715,6 @@ const ManageUsers = () => {
                     type="text"
                     value={viewingUser.last_name || ""}
                     readOnly
-                    style={{ background: "#f5f5f5", cursor: "not-allowed" }}
                   />
                 </div>
               </div>
@@ -577,7 +725,6 @@ const ManageUsers = () => {
                     type="email"
                     value={viewingUser.email || ""}
                     readOnly
-                    style={{ background: "#f5f5f5", cursor: "not-allowed" }}
                   />
                 </div>
                 <div className="input-group">
@@ -586,141 +733,52 @@ const ManageUsers = () => {
                     type="text"
                     value={viewingUser.account_type || ""}
                     readOnly
-                    style={{ background: "#f5f5f5", cursor: "not-allowed" }}
                   />
                 </div>
               </div>
 
-              {/* Position Hierarchy Section */}
-              <div className="hierarchy-section" style={{ marginTop: "30px", paddingTop: "20px", borderTop: "2px solid #e5e5e5" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "600", color: "#333" }}>Position Hierarchy & Colleagues</h3>
-                  <button
-                    type="button"
-                    className="generate-btn"
-                    onClick={() => setShowAddColleague(!showAddColleague)}
-                    style={{ padding: "8px 16px", fontSize: "13px" }}
-                  >
-                    <i className="fa-solid fa-plus"></i> Add Colleague
-                  </button>
-                </div>
+              {/* Hierarchy Section */}
+              <div className="hierarchy-section">
+                <h3>Hierarchy</h3>
 
-                {/* Hierarchy Display */}
-                <div className="hierarchy-display" style={{ marginBottom: "20px", padding: "15px", background: "#f9f9f9", borderRadius: "8px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-                    <strong style={{ color: "#003266" }}>Hierarchy:</strong>
-                    <span style={{ fontSize: "14px", color: "#666" }}>
-                      {viewingUser.account_type === "admin" && "Admin → MD → MP → AL → AP"}
-                      {viewingUser.account_type === "MD" && "MD → MP → AL → AP"}
-                      {viewingUser.account_type === "MP" && "MP → AL → AP"}
-                      {viewingUser.account_type === "AL" && "AL → AP"}
-                      {viewingUser.account_type === "AP" && "AP (No subordinates)"}
-                    </span>
+                {/* Supervisor */}
+                <div className="hierarchy-item">
+                  <label className="hierarchy-label">Reports To</label>
+                  <div className={`hierarchy-card ${!viewingSupervisor ? 'empty' : ''}`}>
+                    {viewingSupervisor ? (
+                      <>
+                        {viewingSupervisor.first_name} {viewingSupervisor.last_name}
+                        <span className="hierarchy-badge">
+                          {viewingSupervisor.account_type}
+                        </span>
+                      </>
+                    ) : (
+                      <span>No supervisor assigned</span>
+                    )}
                   </div>
                 </div>
 
-                {/* Add Colleague Dropdown */}
-                {showAddColleague && (
-                  <div style={{ marginBottom: "20px", padding: "15px", background: "#fff", border: "1px solid #e5e5e5", borderRadius: "8px" }}>
-                    <div className="input-group">
-                      <label>Select Colleague to Add</label>
-                      <select
-                        value={selectedColleague}
-                        onChange={(e) => setSelectedColleague(e.target.value)}
-                        style={{ width: "100%" }}
-                      >
-                        <option value="">-- Select a colleague --</option>
-                        {availableColleagues.map((colleague) => (
-                          <option key={colleague.id} value={colleague.id}>
-                            {colleague.first_name} {colleague.last_name} ({colleague.account_type})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-                      <button
-                        type="button"
-                        className="modal-submit"
-                        onClick={addColleague}
-                        disabled={!selectedColleague}
-                        style={{ padding: "8px 16px", fontSize: "13px" }}
-                      >
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        className="modal-close"
-                        onClick={() => {
-                          setShowAddColleague(false);
-                          setSelectedColleague("");
-                        }}
-                        style={{ padding: "8px 16px", fontSize: "13px" }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Colleagues List */}
-                <div className="colleagues-list">
-                  <label style={{ marginBottom: "10px", display: "block", fontWeight: "600", color: "#333" }}>
-                    Colleagues ({colleagues.length})
-                  </label>
-                  {colleagues.length === 0 ? (
-                    <p style={{ color: "#999", fontStyle: "italic", padding: "20px", textAlign: "center", background: "#f9f9f9", borderRadius: "8px" }}>
-                      No colleagues added yet. Click "Add Colleague" to add one.
-                    </p>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {colleagues.map((colleague) => (
-                        <div
-                          key={colleague.id}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "12px 15px",
-                            background: "#fff",
-                            border: "1px solid #e5e5e5",
-                            borderRadius: "8px"
-                          }}
-                        >
-                          <div>
-                            <strong style={{ color: "#333" }}>
-                              {colleague.first_name} {colleague.last_name}
-                            </strong>
-                            <span style={{ marginLeft: "10px", color: "#666", fontSize: "13px" }}>
-                              ({colleague.account_type})
-                            </span>
-                            <div style={{ fontSize: "12px", color: "#999", marginTop: "4px" }}>
-                              {colleague.email}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeColleague(colleague.id)}
-                            style={{
-                              background: "#ff4b4b",
-                              color: "white",
-                              border: "none",
-                              padding: "6px 12px",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              fontSize: "12px",
-                              transition: "all 0.3s ease"
-                            }}
-                            onMouseOver={(e) => e.target.style.background = "#ff2222"}
-                            onMouseOut={(e) => e.target.style.background = "#ff4b4b"}
-                          >
-                            <i className="fa-solid fa-trash"></i> Remove
-                          </button>
+                {/* Subordinates */}
+                <div className="hierarchy-item">
+                  <label className="hierarchy-label">Direct Reports ({viewingSubordinates.length})</label>
+                  {viewingSubordinates.length > 0 ? (
+                    <div className="subordinates-list">
+                      {viewingSubordinates.map((sub, idx) => (
+                        <div key={idx} className="subordinate-item">
+                          <span className="subordinate-name">{sub.first_name} {sub.last_name}</span>
+                          <span className="subordinate-badge">{sub.account_type}</span>
                         </div>
                       ))}
                     </div>
+                  ) : (
+                    <div className="hierarchy-card empty">
+                      No direct reports found
+                    </div>
                   )}
                 </div>
+
               </div>
+
             </div>
             <div className="modal-buttons">
               <button
@@ -729,10 +787,8 @@ const ManageUsers = () => {
                 onClick={() => {
                   setShowViewModal(false);
                   setViewingUser(null);
-                  setColleagues([]);
-                  setAvailableColleagues([]);
-                  setShowAddColleague(false);
-                  setSelectedColleague("");
+                  setViewingSupervisor(null);
+                  setViewingSubordinates([]);
                 }}
               >
                 Close
@@ -741,6 +797,7 @@ const ManageUsers = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
