@@ -130,6 +130,10 @@ const AdminDashboard = () => {
           <li onClick={() => navigate("/admin/ManageUsers")}>
             <i className="fa-solid fa-users"></i> {sidebarOpen && <span>Manage Users</span>}
           </li>
+
+          <li onClick={() => navigate("/admin/policies")}>
+            <i className="fa-solid fa-file-contract"></i> {sidebarOpen && <span>Policies</span>}
+          </li>
         </ul>
       </aside>
 
