@@ -21,9 +21,14 @@ import AdminPolicies from './pages/Admin/Admin-Policies';
 import ALDashboard from './pages/AL/DashboardPage';
 import ALTeamPerformance from './pages/AL/PerformanceDashboardPage';
 
-// MD/MP Pages
+// MP Pages
+
+import MPDashboard from './pages/MP/MP-Dashboard';     
+import ALPerformance from './pages/MP/ALPerformance';  
+import APPerformance from './pages/MP/APPerformance';
+
+// MP Pages
 import MDDashboard from './pages/MD/MD-Dashboard';
-import MPDashboard from './pages/MP/MP-Dashboard';
 
 function App() {
   return (
@@ -58,8 +63,12 @@ function App() {
           <Route path="/al/doc-history" element={<MainLayout><DocHistoryPage /></MainLayout>} />
 
           {/* MD/MP Routes */}
-          <Route path="/md/dashboard" element={<MDDashboard />} />
           <Route path="/mp/dashboard" element={<MPDashboard />} />
+          <Route path="/mp/al-performance" element={<ALPerformance />} />
+          <Route path="/mp/ap-performance" element={<APPerformance />} />
+
+          {/* MD Routes */}
+          <Route path="/md/dashboard" element={<MDDashboard />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />
