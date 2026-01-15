@@ -13,11 +13,15 @@ const ClientsPage = () => {
     // Toggle to see "Pending" items
     const [showAll, setShowAll] = useState(false);
 
-    // --- NEW: State for Detailed View Modal ---
+    // --- State for Detailed View Modal ---
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [selectedPolicy, setSelectedPolicy] = useState(null);
     const [selectedYear, setSelectedYear] = useState('All');
     const [availableYears, setAvailableYears] = useState([]);
+
+    // --- State for Payment Confirmation Modal ---
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [policyToConfirm, setPolicyToConfirm] = useState(null);
 
     // Track processing actions
     const [processingIds, setProcessingIds] = useState(new Set());
@@ -46,6 +50,7 @@ const ClientsPage = () => {
                         if (status === 'issued' || showAll) {
                             policies.push({
                                 ...s,
+                                id: s.sub_id || s.id, // Ensure ID is present
                                 clientName: `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.username || 'Unknown Client',
                                 clientEmail: c.email || 'No Email',
                                 client_id: c.id
@@ -64,7 +69,6 @@ const ClientsPage = () => {
                     seenIds.add(p.id);
                     uniquePolicies.push(p);
                 } else if (!p.id) {
-                    // unexpected, but keep it if no ID
                     uniquePolicies.push({ ...p, _tempId: Math.random() });
                 }
             });
@@ -81,11 +85,6 @@ const ClientsPage = () => {
                 return isNaN(d.getTime()) ? 'Invalid' : d.getFullYear().toString();
             }))].sort().reverse();
             setAvailableYears(years);
-
-            // Set default year to current year if available, unless "All" is selected
-            if (years.length > 0 && selectedYear === 'All' && !years.includes('All')) {
-                // Logic to default to current year could go here, but 'All' is fine
-            }
 
             const groups = {};
             filtered.forEach(p => {
@@ -116,12 +115,10 @@ const ClientsPage = () => {
                 }
 
                 // Key format: "Year-MonthIdx|Month Name Year" for easy sorting
-                // e.g., "2026-00|January 2026"
                 const monthIdx = d.getMonth().toString().padStart(2, '0');
                 const fullYear = d.getFullYear();
                 const monthName = d.toLocaleString('default', { month: 'long' });
 
-                // We use a comparable key for sorting, but we'll display just the readable part
                 const key = `${fullYear}-${monthIdx}|${monthName} ${fullYear}`;
 
                 if (!groups[key]) groups[key] = [];
@@ -144,29 +141,45 @@ const ClientsPage = () => {
 
     const markPaid = async (id, e) => {
         e.stopPropagation();
-        if (!confirm('Confirm payment received?')) return;
+        setPolicyToConfirm(id);
+        setShowConfirmModal(true);
+    };
 
-        setProcessingIds(prev => new Set(prev).add(id));
+    const confirmPayment = async () => {
+        if (!policyToConfirm) return;
+
+        setProcessingIds(prev => new Set(prev).add(policyToConfirm));
 
         try {
-            const res = await api.markPolicyPaid(id);
+            const res = await api.markPolicyPaid(policyToConfirm);
+
+            setShowConfirmModal(false);
+
             if (res.success) {
                 alert(`Payment Recorded! New Due Date: ${res.nextDate}`);
                 await handleRefresh();
+            } else {
+                alert('Error recording payment: ' + (res.message || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error marking policy as paid:', error);
+            setShowConfirmModal(false);
             alert('Error recording payment: ' + (error.message || 'Unknown error'));
         } finally {
             setProcessingIds(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(id);
+                newSet.delete(policyToConfirm);
                 return newSet;
             });
+            setPolicyToConfirm(null);
         }
     };
 
-    // --- UPDATED: Open Modal with Full Policy Object ---
+    const cancelPayment = () => {
+        setShowConfirmModal(false);
+        setPolicyToConfirm(null);
+    };
+
     const handleViewDetails = (policy, e) => {
         e.stopPropagation();
         setSelectedPolicy(policy);
@@ -242,11 +255,9 @@ const ClientsPage = () => {
                     </div>
                 ) : (
                     Object.entries(groupedPolicies)
-                        .sort((a, b) => a[0].localeCompare(b[0])) // Sort by the "Year-MonthIdx" key prefix
+                        .sort((a, b) => a[0].localeCompare(b[0]))
                         .map(([sortKey, items]) => {
-                            // Extract readable title from key "2026-00|January 2026"
                             const monthStr = sortKey.includes('|') ? sortKey.split('|')[1] : sortKey;
-
                             const overdueCount = items.filter(i => isDateOverdue(i.next_payment_date)).length;
                             const pendingCount = items.length - overdueCount;
 
@@ -297,13 +308,11 @@ const ClientsPage = () => {
                                                                 {p.status !== 'Issued' ? (
                                                                     <span className="status-badge status-pending" style={{ fontSize: '10px' }}>{p.status}</span>
                                                                 ) : isOver ? (
-                                                                    <span className="status-overdue">⚠ OVERDUE</span>
+                                                                    <span className="status-overdue">⚠️ OVERDUE</span>
                                                                 ) : (
                                                                     <span className="status-due">Upcoming</span>
                                                                 )}
                                                             </td>
-
-                                                            {/* View Details Button */}
                                                             <td>
                                                                 <button
                                                                     onClick={(e) => handleViewDetails(p, e)}
@@ -320,7 +329,6 @@ const ClientsPage = () => {
                                                                     View
                                                                 </button>
                                                             </td>
-
                                                             <td>
                                                                 <button
                                                                     className="pay-btn"
@@ -346,44 +354,27 @@ const ClientsPage = () => {
                 )}
             </div>
 
-            {/* --- NEW: DETAILED VIEW MODAL --- */}
+            {/* --- DETAILED VIEW MODAL --- */}
             {showDetailsModal && selectedPolicy && ReactDOM.createPortal(
                 <div onClick={() => setShowDetailsModal(false)} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    backgroundColor: 'rgba(0,0,0,0.6)',
-                    zIndex: 10000,
-                    margin: 0,
-                    padding: '20px'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)',
+                    zIndex: 10000, margin: 0, padding: '20px'
                 }}>
                     <div className="modal-content" style={{
-                        maxWidth: '600px',
-                        width: '100%',
-                        margin: 'auto',
-                        maxHeight: '90vh',
-                        overflowY: 'auto',
-                        position: 'relative'
+                        maxWidth: '600px', width: '100%', margin: 'auto',
+                        maxHeight: '90vh', overflowY: 'auto', position: 'relative'
                     }} onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>Policy Details</h2>
                             <span className="close-modal" onClick={() => setShowDetailsModal(false)}>&times;</span>
                         </div>
                         <div className="modal-body">
-
-                            {/* 1. KEY INFO GRID */}
                             <div style={{
                                 display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px',
                                 backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6'
                             }}>
-                                {/* ADDED: Client Name Field */}
                                 <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '5px' }}>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Client Name</small>
                                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c3e50' }}>
@@ -391,7 +382,6 @@ const ClientsPage = () => {
                                     </div>
                                     <small style={{ color: '#888' }}>{selectedPolicy.clientEmail}</small>
                                 </div>
-
                                 <div>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Serial Number</small>
                                     <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#003781' }}>{selectedPolicy.serial_number || 'N/A'}</div>
@@ -404,7 +394,6 @@ const ClientsPage = () => {
                                         </span>
                                     </div>
                                 </div>
-
                                 <div>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Policy Type</small>
                                     <div style={{ fontWeight: 500 }}>{selectedPolicy.policy_type}</div>
@@ -413,7 +402,6 @@ const ClientsPage = () => {
                                     <small style={{ color: '#666', fontWeight: 600 }}>Premium</small>
                                     <div style={{ fontWeight: 500 }}>PHP {parseFloat(selectedPolicy.premium_paid).toLocaleString()}</div>
                                 </div>
-
                                 <div>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Mode of Payment</small>
                                     <div>{selectedPolicy.mode_of_payment}</div>
@@ -428,14 +416,16 @@ const ClientsPage = () => {
                                 <div style={{ padding: '10px', background: '#e3f2fd', borderRadius: '6px' }}>
                                     <small style={{ color: '#0055b8', fontWeight: 700 }}>Submitted On</small>
                                     <div style={{ fontSize: '13px' }}>
-                                        {selectedPolicy.created_at ? new Date(selectedPolicy.created_at).toLocaleDateString() : 'N/A'}
+                                        {/* FIXED: Uses issued_at which contains the submission timestamp */}
+                                        {selectedPolicy.issued_at ? new Date(selectedPolicy.issued_at).toLocaleDateString() : 'N/A'}
                                     </div>
                                 </div>
                                 <div style={{ padding: '10px', background: '#d4edda', borderRadius: '6px' }}>
                                     <small style={{ color: '#155724', fontWeight: 700 }}>Issued On</small>
                                     <div style={{ fontSize: '13px' }}>
+                                        {/* FIXED: Uses date_issued which is only present for Issued items */}
                                         {selectedPolicy.status === 'Issued' ?
-                                            (selectedPolicy.updated_at ? new Date(selectedPolicy.updated_at).toLocaleDateString() : 'N/A')
+                                            (selectedPolicy.date_issued ? new Date(selectedPolicy.date_issued).toLocaleDateString() : 'N/A')
                                             : '-'}
                                     </div>
                                 </div>
@@ -447,21 +437,15 @@ const ClientsPage = () => {
                                 </div>
                             </div>
 
-                            {/* 2. ATTACHMENTS LIST */}
                             <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                                📎 Attached Files
+                                📄 Attached Files
                             </h3>
-                            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                            <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                                 {selectedPolicy.attachments && selectedPolicy.attachments.length > 0 ? (
                                     <ul style={{ listStyle: 'none', padding: 0 }}>
                                         {selectedPolicy.attachments.map((file, idx) => (
                                             <li key={idx} style={{ marginBottom: '8px', padding: '8px 12px', backgroundColor: '#fff', borderRadius: '4px', border: '1px solid #dee2e6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <a
-                                                    href={file.fileUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{ textDecoration: 'none', color: '#007bff', fontWeight: 500, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                                                >
+                                                <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: '#007bff', fontWeight: 500, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     📄 {file.fileName || 'Document'}
                                                 </a>
                                                 <span style={{ fontSize: '11px', color: '#999' }}>
@@ -475,7 +459,69 @@ const ClientsPage = () => {
                                 )}
                             </div>
 
+                            <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+                                💳 Payment History
+                            </h3>
+                            <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                    <thead style={{ backgroundColor: '#f8f9fa', position: 'sticky', top: 0 }}>
+                                        <tr>
+                                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Paid On</th>
+                                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Period Covered</th>
+                                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedPolicy.payment_history && selectedPolicy.payment_history.length > 0 ? (
+                                            selectedPolicy.payment_history
+                                                .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
+                                                .map((hist, idx) => (
+                                                    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {new Date(hist.payment_date).toLocaleDateString()}
+                                                            <div style={{ fontSize: '10px', color: '#999' }}>
+                                                                {new Date(hist.payment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {hist.period_covered ? new Date(hist.period_covered).toLocaleDateString() : '-'}
+                                                        </td>
+                                                        <td style={{ padding: '8px', fontWeight: 600, color: '#28a745' }}>
+                                                            PHP {parseFloat(hist.amount).toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="3" style={{ padding: '15px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>
+                                                    No payment history found.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
                             <div style={{ textAlign: 'right', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
+                                {selectedPolicy.status !== 'Issued' && (
+                                    <button
+                                        onClick={(e) => {
+                                            setShowDetailsModal(false);
+                                            markPaid(selectedPolicy.id, e);
+                                        }}
+                                        style={{
+                                            padding: '8px 20px',
+                                            backgroundColor: '#28a745',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            marginRight: '10px'
+                                        }}
+                                    >
+                                        Mark as Paid
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setShowDetailsModal(false)}
                                     style={{
@@ -483,6 +529,58 @@ const ClientsPage = () => {
                                     }}
                                 >
                                     Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* --- PAYMENT CONFIRMATION MODAL --- */}
+            {showConfirmModal && ReactDOM.createPortal(
+                <div onClick={!processingIds.has(policyToConfirm) ? cancelPayment : undefined} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)',
+                    zIndex: 10001, margin: 0, padding: '20px'
+                }}>
+                    <div className="modal-content" style={{
+                        maxWidth: '450px', width: '100%', margin: 'auto', position: 'relative'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Confirm Payment</h2>
+                            {!processingIds.has(policyToConfirm) && (
+                                <span className="close-modal" onClick={cancelPayment}>&times;</span>
+                            )}
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: '16px', marginBottom: '20px', color: '#495057' }}>
+                                Are you sure you want to mark this payment as received?
+                            </p>
+                            <p style={{ fontSize: '14px', color: '#6c757d', marginBottom: '25px' }}>
+                                This will record the payment and update the next due date.
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={cancelPayment}
+                                    disabled={processingIds.has(policyToConfirm)}
+                                    style={{
+                                        padding: '10px 24px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px',
+                                        cursor: processingIds.has(policyToConfirm) ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500', opacity: processingIds.has(policyToConfirm) ? 0.6 : 1
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmPayment}
+                                    disabled={processingIds.has(policyToConfirm)}
+                                    style={{
+                                        padding: '10px 24px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px',
+                                        cursor: processingIds.has(policyToConfirm) ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500', opacity: processingIds.has(policyToConfirm) ? 0.6 : 1, minWidth: '140px'
+                                    }}
+                                >
+                                    {processingIds.has(policyToConfirm) ? 'Processing...' : 'Confirm Payment'}
                                 </button>
                             </div>
                         </div>

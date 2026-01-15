@@ -208,8 +208,11 @@ const AdminSe1rialNumber = () => {
           <li onClick={() => navigate("/admin/ManageUsers")}>
             <i className="fa-solid fa-users"></i> {sidebarOpen && <span>Manage Users</span>}
           </li>
-          <li className="active">
+          <li className="active" onClick={() => navigate("/admin/SerialNumber")}>
             <i className="fa-solid fa-barcode"></i> {sidebarOpen && <span>Serial Numbers</span>}
+          </li>
+          <li onClick={() => navigate("/admin/policies")}>
+            <i className="fa-solid fa-file-shield"></i> {sidebarOpen && <span>Policies</span>}
           </li>
         </ul>
       </aside>
