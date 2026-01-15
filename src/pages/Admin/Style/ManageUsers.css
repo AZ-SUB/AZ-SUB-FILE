@@ -354,7 +354,135 @@ select:focus {
   color: #2ecc71;
   font-size: 13px;
 }
+/* Updated View Modal Specifics */
+.view-details-modal {
+  width: 750px;
+  display: flex;
+  flex-direction: column;
+}
 
+.modal-scroll-area {
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-bottom: 10px;
+}
+
+/* Read Only Look */
+.read-only-box {
+  background: #f1f3f5;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  color: #333;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.position-tag {
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Hierarchy Styling */
+.hierarchy-container {
+  margin-top: 30px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+}
+
+.hierarchy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.hierarchy-header h3 {
+  font-size: 16px;
+  color: #333;
+}
+
+.add-colleague-pill {
+  background: #eef6ff;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.add-colleague-pill:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* Colleague Cards */
+.colleague-cards-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two columns */
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.colleague-card {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #eee;
+  padding: 12px;
+  border-radius: 10px;
+  position: relative;
+}
+
+.colleague-avatar {
+  width: 35px;
+  height: 35px;
+  background: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-right: 12px;
+  font-weight: bold;
+}
+
+.c-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.c-meta {
+  font-size: 11px;
+  color: #777;
+  margin: 0;
+}
+
+.remove-colleague-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.remove-colleague-btn:hover {
+  color: var(--danger-color);
+}
+
+.empty-text {
+  grid-column: span 2;
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  padding: 20px;
+}
 /* ================= BUTTONS ================= */
 .modal-buttons {
   display: flex;

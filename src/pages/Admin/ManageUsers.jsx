@@ -320,6 +320,7 @@ const ManageUsers = () => {
           <li className="active">
             <i className="fa-solid fa-users"></i> {sidebarOpen && <span>Manage Users</span>}
           </li>
+
         </ul>
       </aside>
 
@@ -419,7 +420,6 @@ const ManageUsers = () => {
         <div className="modal-overlay">
           <div className="modal-box">
             <h2 className="modal-title">{isEditMode ? "Edit User" : "Add New User"}</h2>
-
             <form className="modal-form" onSubmit={submitAddUser}>
               <div className="modal-content">
                 <div className="name-row">

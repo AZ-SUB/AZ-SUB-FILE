@@ -26,6 +26,8 @@ const AdminSe1rialNumber = () => {
   const [uploading, setUploading] = useState(false);
   const [serial_type, setserial_type] = useState("Default");
 
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedSerial, setSelectedSerial] = useState(null);
   // ===== SORTING =====
   const [sortField, setSortField] = useState(null); // 'is_issued' or 'serial_type'
   const [sortOrder, setSortOrder] = useState("asc"); // 'asc' or 'desc'
@@ -181,7 +183,11 @@ const AdminSe1rialNumber = () => {
 
     reader.readAsText(selectedFile);
   };
-
+/* ================= VIEW MODAL LOGIC ================= */
+  const handleView = (serial) => {
+    setSelectedSerial(serial);
+    setShowViewModal(true);
+  };
   /* ================= LOGOUT ================= */
   const logout = async () => {
     await supabase.auth.signOut();
@@ -310,51 +316,125 @@ const AdminSe1rialNumber = () => {
                 <th>Response ID</th>
                 <th>Serial Type</th>
                 <th>Date</th>
+                <th>Action</th>
               </tr>
             </thead>
-            <tbody>
-              {serial_numbers.length ?
-                serial_numbers
-                  .sort((a, b) => {
-                    if (!sortField) return 0;
-                    let aValue, bValue;
+<tbody>
+  {serial_numbers.length ?
+    serial_numbers
+      .sort((a, b) => {
+        if (!sortField) return 0;
+        let aValue, bValue;
 
-                    if (sortField === "is_issued") {
-                      aValue = a.is_issued ? 1 : 0;
-                      bValue = b.is_issued ? 1 : 0;
-                    } else if (sortField === "serial_type") {
-                      aValue = a.serial_type.toLowerCase();
-                      bValue = b.serial_type.toLowerCase();
-                    }
+        if (sortField === "is_issued") {
+          aValue = a.is_issued ? 1 : 0;
+          bValue = b.is_issued ? 1 : 0;
+        } else if (sortField === "serial_type") {
+          aValue = a.serial_type.toLowerCase();
+          bValue = b.serial_type.toLowerCase();
+        }
 
-                    if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
-                    if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
-                    return 0;
-                  })
-                  .map((item, index) => (
-                    <tr key={item.serial_id}>
-                      <td>{index + 1}</td>
-                      <td>{item.serial_number}</td>
-                      <td>{item.is_issued ? "Yes" : ""}</td>
-                      <td>{item.Confirm ? "Yes" : ""}</td>
-                      <td>{item.ResponseID || "-"}</td>
-                      <td>{item.serial_type}</td>
-                      <td>{new Date(item.date).toLocaleString()}</td>
-                    </tr>
-                  ))
-                : (
-                  <tr>
-                    <td colSpan="7">No data available</td>
-                  </tr>
-                )}
-            </tbody>
+        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      })
+      .map((item, index) => (
+        <tr key={item.serial_id}>
+          <td>{index + 1}</td>
+          <td>{item.serial_number}</td>
+          <td>{item.is_issued ? "Yes" : ""}</td>
+          <td>{item.Confirm ? "Yes" : ""}</td>
+          <td>{item.ResponseID || "-"}</td>
+          <td>{item.serial_type}</td>
+          <td>{new Date(item.date).toLocaleString()}</td>
+          <td>
+            <button className="view-btn" onClick={() => handleView(item)}>
+              View
+            </button>
+          </td>
+        </tr>
+      ))
+    :
+    (
+      <tr>
+        <td colSpan="8">No data available</td>
+      </tr>
+    )
+  }
+</tbody>
+
           </table>
         </div>
 
         {/* ================= MODAL ================= */}
+        {/* View modal */}
+        {showViewModal && selectedSerial && (
+  <div className="modal-overlay">
+    <div className="modal" style={{ width: "450px" }}> {/* Slightly wider for better table fit */}
+      <h2>Serial Tracking</h2>
+
+      <div style={{ marginBottom: "15px", fontSize: "14px", lineHeight: "1.6" }}>
+        <p><strong>Serial Number:</strong> {selectedSerial.serial_number}</p>
+        <p><strong>Serial Type:</strong> {selectedSerial.serial_type}</p>
+        <p><strong>Requested by:</strong> {selectedSerial.ResponseID || "Not yet taken"}</p>
+        <p><strong>Request Date:</strong> {new Date(selectedSerial.date).toLocaleDateString()}</p>
+      </div>
+
+      <hr style={{ border: "0.5px solid #eee", margin: "15px 0" }} />
+
+      <h3 style={{ fontSize: "16px", marginBottom: "10px" }}>Tracking Status</h3>
+      <ul style={{ listStyle: "none", paddingLeft: 0, fontSize: "14px" }}>
+        <li style={{ marginBottom: "8px" }}>
+          <span style={{ color: "var(--success-color)", marginRight: "10px" }}>●</span>
+          <strong>Serial Created:</strong> {new Date(selectedSerial.date).toLocaleString()}
+        </li>
+        <li style={{ marginBottom: "8px" }}>
+          <span style={{ color: selectedSerial.is_issued ? "var(--success-color)" : "#ccc", marginRight: "10px" }}>●</span>
+          <strong>Serial confirm:</strong> {selectedSerial.is_issued ? "Confirmed" : "In Progress"}
+        </li>
+        <li style={{ marginBottom: "8px" }}>
+          <span style={{ color: selectedSerial.ResponseID ? "var(--success-color)" : "#ccc", marginRight: "10px" }}>●</span>
+          <strong>Serial Issued:</strong> {selectedSerial.ResponseID ? "Completed" : "Pending"}
+        </li>
+
+      </ul>
+
+      <hr style={{ border: "0.5px solid #eee", margin: "15px 0" }} />
+
+      <h3 style={{ fontSize: "16px", marginBottom: "10px" }}>Submitted File</h3>
+      <table className="serial-table" style={{ fontSize: "13px" }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left" }}>File Name</th>
+            <th style={{ textAlign: "right" }}>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ textAlign: "left" }}>
+              <i className="fa-solid fa-file-pdf" style={{ color: "#e74c3c", marginRight: "8px" }}></i>
+              {`Attachment_${selectedSerial.serial_number}.pdf`}
+            </td>
+            <td style={{ textAlign: "right" }}>
+              <button className="view-btn" style={{ padding: "4px 8px", fontSize: "11px", cursor: "pointer" }}>
+                View
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="modal-buttons" style={{ marginTop: "20px" }}>
+        <button className="cancel-btn" onClick={() => setShowViewModal(false)}>
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
         {showImportModal && (
           <div className="modal-overlay">
-            <div className="modal">
+            <div className="modal" style={{ width: "450px" }}>
               <h2>Import CSV</h2>
 
               <input
