@@ -76,23 +76,10 @@ export const api = {
   },
 
   markPolicyPaid: async (id) => {
-    try {
-      const res = await fetch(`${API_URL}/api/submissions/${id}/pay`, {
-        method: 'POST'
-      });
-
-      // Check if response is JSON
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned non-JSON response. Please check server logs.');
-      }
-
-      const data = await res.json();
-      return data;
-    } catch (error) {
-      console.error('Error in markPolicyPaid:', error);
-      return { success: false, message: error.message };
-    }
+    const res = await fetch(`${API_URL}/api/form-submissions/${id}/pay`, {
+      method: 'POST'
+    });
+    return res.json();
   },
 
   // AL Team Performance

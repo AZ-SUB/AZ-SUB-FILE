@@ -3,10 +3,8 @@
     background: #f5f7fb;
     font-family: "Poppins", sans-serif;
     min-height: 100vh;
-    width: 100%;
     display: flex;
     flex-direction: row;
-    overflow-x: hidden;
     --primary-color: #003266;
     --secondary-color: #0052a3;
     --accent-color: #00a8ff;
@@ -238,17 +236,14 @@
     padding: 20px 0;
     margin-bottom: 30px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .admin-logo-img {
     width: 100%;
-    max-width: 150px;
+    max-width: 130px;
     height: auto;
     object-fit: contain;
-    /* Logo is already light-colored and will show well on dark background */
 }
-
 
 /* MENU */
 .admin-sidebar-menu {
@@ -310,13 +305,16 @@
     margin-top: 70px;
     padding: 40px 50px;
     flex: 1;
-    min-height: calc(100vh - 70px);
+    width: calc(100% - 260px);
+    max-width: calc(100% - 260px);
     overflow-y: auto;
-    transition: margin-left 0.3s ease;
+    transition: margin-left 0.3s ease, width 0.3s ease, max-width 0.3s ease;
 }
 
 .admin-main-content.expanded {
     margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     padding: 40px 60px;
 }
 
