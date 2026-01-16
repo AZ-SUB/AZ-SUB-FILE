@@ -6,10 +6,11 @@ import { calculateANP } from '../../utils/calculations';
 const MonitoringPage = () => {
     const { loadMonitoringData, currentUser } = useApp();
 
-    // --- 1. CONFIGURATION ---
-    const MANUAL_POLICIES = ['Eazy Health', 'Allianz Fundamental Cover', 'Allianz Secure Pro'];
+    // --- 1. POLICIES STATE ---
+    const [policies, setPolicies] = useState([]);
+    const [loadingPolicies, setLoadingPolicies] = useState(true);
 
-    // --- 2. STATE ---
+    // --- 2. FORM STATE ---
     const [formData, setFormData] = useState({
         agency: 'Caelum',
         submissionType: 'New Business',
@@ -21,7 +22,7 @@ const MonitoringPage = () => {
         clientFirstName: '',
         clientLastName: '',
         clientEmail: '',
-        policyType: 'Allianz Well',
+        policyType: '', // Will be set after policies load
         policyDate: '',
         modeOfPayment: 'Annual',
         premiumPaid: '',
@@ -33,8 +34,14 @@ const MonitoringPage = () => {
     const [messageType, setMessageType] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
-    // Derived State
-    const isManualPolicy = MANUAL_POLICIES.includes(formData.policyType);
+    // Derived State - Determine if policy is manual based on request_type from database (case-insensitive)
+    const selectedPolicy = policies.find(p => p.policy_name === formData.policyType);
+    const isManualPolicy = selectedPolicy?.request_type?.toLowerCase() === 'manual';
+
+    // Fetch Active Policies on Mount
+    useEffect(() => {
+        fetchActivePolicies();
+    }, []);
 
     // Auto-fill from Current User
     useEffect(() => {
@@ -48,6 +55,31 @@ const MonitoringPage = () => {
             }));
         }
     }, [currentUser]);
+
+    // --- FETCH POLICIES ---
+    const fetchActivePolicies = async () => {
+        setLoadingPolicies(true);
+        try {
+            const response = await api.getActivePolicies();
+            if (response.success && response.data.length > 0) {
+                setPolicies(response.data);
+                // Set first policy as default
+                setFormData(prev => ({
+                    ...prev,
+                    policyType: response.data[0].policy_name
+                }));
+            } else {
+                console.warn('No active policies found');
+                setPolicies([]);
+            }
+        } catch (error) {
+            console.error('Error fetching policies:', error);
+            setMessage('Failed to load policies. Please refresh the page.');
+            setMessageType('error');
+        } finally {
+            setLoadingPolicies(false);
+        }
+    };
 
     // --- 3. HANDLERS ---
 
@@ -216,13 +248,24 @@ const MonitoringPage = () => {
 
                         <div className="form-group">
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#344054', marginBottom: '6px', display: 'block' }}>Policy Type</label>
-                            <select name="policyType" value={formData.policyType} onChange={handleChange} disabled={submitting} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #d0d5dd', boxShadow: '0 1px 2px rgba(16,24,40,0.05)', fontSize: '14px', color: '#101828' }}>
-                                <option value="Allianz Well">Allianz Well (System)</option>
-                                <option value="AZpire Growth">AZpire Growth (System)</option>
-                                <option value="Single Pay/Optimal">Single Pay/Optimal (System)</option>
-                                <option value="Eazy Health">Eazy Health (Manual)</option>
-                                <option value="Allianz Fundamental Cover">Allianz Fundamental Cover (Manual)</option>
-                                <option value="Allianz Secure Pro">Allianz Secure Pro (Manual)</option>
+                            <select
+                                name="policyType"
+                                value={formData.policyType}
+                                onChange={handleChange}
+                                disabled={submitting || loadingPolicies}
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #d0d5dd', boxShadow: '0 1px 2px rgba(16,24,40,0.05)', fontSize: '14px', color: '#101828' }}
+                            >
+                                {loadingPolicies ? (
+                                    <option>Loading policies...</option>
+                                ) : policies.length === 0 ? (
+                                    <option>No active policies available</option>
+                                ) : (
+                                    policies.map(policy => (
+                                        <option key={policy.policy_id} value={policy.policy_name}>
+                                            {policy.policy_name} ({policy.request_type?.toLowerCase() === 'manual' ? 'Manual' : 'System'})
+                                        </option>
+                                    ))
+                                )}
                             </select>
                         </div>
 

@@ -131,6 +131,25 @@ function generateApplicationPDF(data, serialNumber) {
 
 app.get('/api/health', (req, res) => res.status(200).json({ success: true, status: 'ok' }));
 
+// GET ACTIVE POLICIES
+app.get('/api/policies/active', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('policy')
+      .select('policy_id, policy_name, policy_type, form_type, request_type, agency')
+      .eq('active_status', true)
+      .order('policy_name', { ascending: true });
+
+    if (error) throw error;
+
+    res.json({ success: true, data: data || [] });
+  } catch (e) {
+    console.error('Error fetching active policies:', e);
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+
 // 1. CHECK SERIAL (System Only)
 app.get('/api/serial-numbers/available/:policyType', async (req, res) => {
   try {
@@ -165,19 +184,36 @@ app.post('/api/monitoring/submit', async (req, res) => {
     const body = req.body;
     console.log(`Submitting: ${body.policyType} | Serial: ${body.serialNumber}`);
 
-    const MANUAL_POLICIES = ['Eazy Health', 'Allianz Fundamental Cover', 'Allianz Secure Pro'];
-    const isManual = MANUAL_POLICIES.includes(body.policyType);
-
     // --- POLICY LOOKUP ---
     let finalPolicyId = null;
-    const { data: exactMatch } = await supabase.from('policy').select('policy_id').eq('policy_type', body.policyType).maybeSingle();
-    if (exactMatch) finalPolicyId = exactMatch.policy_id;
-    else {
-      const { data: all } = await supabase.from('policy').select('policy_id, policy_type');
-      const match = all?.find(p => p.policy_type.trim().toLowerCase() === body.policyType.trim().toLowerCase());
-      if (match) finalPolicyId = match.policy_id;
+    let isManual = false;
+
+    // First, try exact match on policy_name (since frontend sends policy_name)
+    const { data: exactMatch } = await supabase
+      .from('policy')
+      .select('policy_id, request_type')
+      .eq('policy_name', body.policyType)
+      .maybeSingle();
+
+    if (exactMatch) {
+      finalPolicyId = exactMatch.policy_id;
+      isManual = exactMatch.request_type?.toLowerCase() === 'manual';
+    } else {
+      // Fallback: try policy_type field with case-insensitive match
+      const { data: all } = await supabase.from('policy').select('policy_id, policy_type, policy_name, request_type');
+      const match = all?.find(p =>
+        p.policy_type.trim().toLowerCase() === body.policyType.trim().toLowerCase() ||
+        p.policy_name.trim().toLowerCase() === body.policyType.trim().toLowerCase()
+      );
+      if (match) {
+        finalPolicyId = match.policy_id;
+        isManual = match.request_type?.toLowerCase() === 'manual';
+      }
     }
+
     if (!finalPolicyId) throw new Error(`Policy Type '${body.policyType}' not found.`);
+
+    console.log(`[MONITORING SUBMIT] Policy: ${body.policyType}, ID: ${finalPolicyId}, isManual: ${isManual}, request_type: ${exactMatch?.request_type || 'fallback'}`);
 
     // --- PROFILE LOOKUP (For User Linking) ---
     // Prioritize explicit profileId from frontend, otherwise lookup by email

@@ -26,6 +26,17 @@ export const api = {
     return res.json();
   },
 
+  // Get Active Policies
+  getActivePolicies: async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/policies/active`);
+      return res.json();
+    } catch (error) {
+      console.error('Error fetching active policies:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
   // Serial Numbers
   getAvailableSerial: async (policyType) => {
     const res = await fetch(`${API_URL}/api/serial-numbers/available/${encodeURIComponent(policyType)}`);
