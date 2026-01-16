@@ -87,7 +87,7 @@ export const api = {
   },
 
   markPolicyPaid: async (id) => {
-    const res = await fetch(`${API_URL}/api/form-submissions/${id}/pay`, {
+    const res = await fetch(`${API_URL}/api/submissions/${id}/pay`, {
       method: 'POST'
     });
     return res.json();

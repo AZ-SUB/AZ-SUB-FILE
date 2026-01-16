@@ -352,18 +352,18 @@ const AdminPolicies = () => {
                                                     </td>
                                                     <td>
                                                         <span className={`status-badge ${policy.active_status ? 'status-active' : 'status-inactive'}`}>
-                                                            {policy.active_status ? 'Active' : 'Inactive'}
+                                                            {policy.active_status ? 'Active' : 'Archived'}
                                                         </span>
                                                     </td>
                                                     <td>
                                                         <div className="policy-actions">
                                                             <button
                                                                 className={`toggle-btn ${policy.active_status ? 'btn-deactivate' : 'btn-activate'}`}
-                                                                title={policy.active_status ? 'Deactivate' : 'Activate'}
+                                                                title={policy.active_status ? 'Archive Policy' : 'Restore Policy'}
                                                                 onClick={() => openConfirmModal(policy)}
                                                             >
-                                                                <i className={`fa-solid ${policy.active_status ? 'fa-toggle-on' : 'fa-toggle-off'}`}></i>
-                                                                {policy.active_status ? 'Active' : 'Inactive'}
+                                                                <i className={`fa-solid ${policy.active_status ? 'fa-box-archive' : 'fa-rotate-left'}`}></i>
+                                                                {policy.active_status ? 'Archive' : 'Restore'}
                                                             </button>
                                                             <button
                                                                 className="edit-btn"
@@ -465,7 +465,7 @@ const AdminPolicies = () => {
                             </div>
                             <div className="confirm-content">
                                 <p>
-                                    Are you sure you want to <strong>{policyToToggle.active_status ? 'deactivate' : 'activate'}</strong> the policy:
+                                    Are you sure you want to <strong>{policyToToggle.active_status ? 'archive' : 'restore'}</strong> the policy:
                                 </p>
                                 <p className="policy-name-highlight">"{policyToToggle.policy_name}"</p>
                             </div>
@@ -485,7 +485,7 @@ const AdminPolicies = () => {
                                     className={`confirm-btn ${policyToToggle.active_status ? 'btn-danger' : 'btn-success'}`}
                                     onClick={confirmToggleStatus}
                                 >
-                                    {policyToToggle.active_status ? 'Deactivate' : 'Activate'}
+                                    {policyToToggle.active_status ? 'Archive' : 'Restore'}
                                 </button>
                             </div>
                         </div>
