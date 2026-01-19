@@ -6,6 +6,7 @@ const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
+// Bypass SSL issues in dev
 if (process.env.NODE_ENV === 'development') {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
@@ -46,8 +47,8 @@ const SUPABASE_BUCKET = 'policy-documents';
 
 // Check Email Connection
 transporter.verify((error) => {
-  if (error) console.log("❌ Email Connection Error:", error);
-  else console.log("✅ Email Server is Ready");
+  if (error) console.log("Email Connection Error:", error);
+  else console.log("Email Server is Ready");
 });
 
 // --- HELPER FUNCTIONS ---
@@ -131,7 +132,7 @@ function generateApplicationPDF(data, serialNumber) {
 
 app.get('/api/health', (req, res) => res.status(200).json({ success: true, status: 'ok' }));
 
-// GET ACTIVE POLICIES
+// GET ACTIVE POLICIES (RESTORED - Fixes 404 Error)
 app.get('/api/policies/active', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -149,14 +150,12 @@ app.get('/api/policies/active', async (req, res) => {
   }
 });
 
-
 // 1. CHECK SERIAL (System Only)
 app.get('/api/serial-numbers/available/:policyType', async (req, res) => {
   try {
     const { policyType } = req.params;
     const typeToSearch = policyType === 'Allianz Well' ? 'Allianz Well' : 'Default';
 
-    // Safety check: Use limit(1) to avoid crashes on duplicates
     const { data, error } = await supabase.from('serial_number')
       .select('*')
       .eq('serial_type', typeToSearch)
@@ -178,103 +177,96 @@ app.get('/api/serial-numbers/available/:policyType', async (req, res) => {
   }
 });
 
-// 2. SUBMIT MONITORING (ROBUST SYSTEM LOOKUP)
+// 2. SUBMIT MONITORING (WITH FIX FOR ACTIVE STATUS)
 app.post('/api/monitoring/submit', async (req, res) => {
   try {
     const body = req.body;
-    console.log(`Submitting: ${body.policyType} | Serial: ${body.serialNumber}`);
+    console.log(`Processing Submission: ${body.policyType} | Serial: ${body.serialNumber}`);
+
+    const MANUAL_POLICIES = ['Eazy Health', 'Allianz Fundamental Cover', 'Allianz Secure Pro'];
+    const isManual = MANUAL_POLICIES.includes(body.policyType);
 
     // --- POLICY LOOKUP ---
     let finalPolicyId = null;
-    let isManual = false;
+    const { data: exactMatch } = await supabase.from('policy').select('policy_id').eq('policy_type', body.policyType).maybeSingle();
+    if (exactMatch) finalPolicyId = exactMatch.policy_id;
+    else {
+      const { data: all } = await supabase.from('policy').select('policy_id, policy_type');
+      const match = all?.find(p => p.policy_type.trim().toLowerCase() === body.policyType.trim().toLowerCase());
+      if (match) finalPolicyId = match.policy_id;
+    }
+    if (!finalPolicyId) throw new Error(`Policy Type '${body.policyType}' not found.`);
 
-    // First, try exact match on policy_name (since frontend sends policy_name)
-    const { data: exactMatch } = await supabase
-      .from('policy')
-      .select('policy_id, request_type')
-      .eq('policy_name', body.policyType)
-      .maybeSingle();
+    // --- PROFILE LOOKUP (CRITICAL FIX) ---
+    let profileId = body.profileId || null;
 
-    if (exactMatch) {
-      finalPolicyId = exactMatch.policy_id;
-      isManual = exactMatch.request_type?.toLowerCase() === 'manual';
-    } else {
-      // Fallback: try policy_type field with case-insensitive match
-      const { data: all } = await supabase.from('policy').select('policy_id, policy_type, policy_name, request_type');
-      const match = all?.find(p =>
-        p.policy_type.trim().toLowerCase() === body.policyType.trim().toLowerCase() ||
-        p.policy_name.trim().toLowerCase() === body.policyType.trim().toLowerCase()
-      );
-      if (match) {
-        finalPolicyId = match.policy_id;
-        isManual = match.request_type?.toLowerCase() === 'manual';
+    if (!profileId && body.intermediaryEmail) {
+      // Case-insensitive lookup by email
+      const { data: profileData } = await supabase.from('profiles')
+        .select('id')
+        .ilike('email', body.intermediaryEmail.trim())
+        .maybeSingle();
+
+      if (profileData) {
+        profileId = profileData.id;
+        console.log(`Agent Profile Found: ${profileId}`);
+      } else {
+        console.warn(`Warning: Agent email '${body.intermediaryEmail}' not found in profiles.`);
       }
     }
 
-    if (!finalPolicyId) throw new Error(`Policy Type '${body.policyType}' not found.`);
+    // --- MANUALLY UPDATE AGENT STATUS ---
+    // Update timestamp to NOW.
+    if (profileId) {
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ last_submission_at: new Date().toISOString() })
+        .eq('id', profileId);
 
-    console.log(`[MONITORING SUBMIT] Policy: ${body.policyType}, ID: ${finalPolicyId}, isManual: ${isManual}, request_type: ${exactMatch?.request_type || 'fallback'}`);
-
-    // --- PROFILE LOOKUP (For User Linking) ---
-    // Prioritize explicit profileId from frontend, otherwise lookup by email
-    let profileId = body.profileId || null;
-
-    if (!profileId) {
-      // Try to find a profile with this email to link for visibility
-      const { data: profileData } = await supabase.from('profiles').select('id').eq('email', body.intermediaryEmail).maybeSingle();
-      if (profileData) profileId = profileData.id;
+      if (updateError) console.error("Failed to update active status:", updateError.message);
+      else console.log("Agent Status Updated to Active");
     }
 
-    // --- SERIAL LOGIC (FIXED) ---
+    // --- SERIAL LOGIC ---
     let serialId = null;
     if (isManual) {
-      // Manual: Check exists, if not create
       const { data: existingSerial } = await supabase.from('serial_number').select('serial_id').eq('serial_number', body.serialNumber).limit(1).maybeSingle();
       if (existingSerial) {
         serialId = existingSerial.serial_id;
         await supabase.from('serial_number').update({ is_issued: true }).eq('serial_id', serialId);
       } else {
-        // FIX: Ensure insert creates required fields (like date if needed) and captures errors
         const { data: newSerial, error: createError } = await supabase.from('serial_number')
           .insert([{
             serial_number: body.serialNumber,
             serial_type: 'Manual',
             is_issued: true,
-            date: new Date().toISOString() // Ensure date is present just in case
+            date: new Date().toISOString()
           }])
           .select('serial_id')
           .single();
 
-        if (createError) {
-          console.error("Manual Serial Creation Failed:", createError);
-          throw new Error("Failed to register manual serial number: " + createError.message);
-        }
+        if (createError) throw new Error("Serial Creation Failed: " + createError.message);
         serialId = newSerial.serial_id;
       }
     } else {
-      // System: Must exist. Using limit(1).maybeSingle() to prevent crash on duplicates
       const { data: sysSerial } = await supabase.from('serial_number')
         .select('serial_id')
         .eq('serial_number', body.serialNumber)
         .limit(1)
         .maybeSingle();
 
-      if (!sysSerial) throw new Error(`System Serial ${body.serialNumber} not found/valid in database.`);
+      if (!sysSerial) throw new Error(`System Serial ${body.serialNumber} not found.`);
       serialId = sysSerial.serial_id;
     }
 
     // --- INSERT SUBMISSION ---
-    // FIX: ParseFloat safety to avoid NaN crashes
-    const safePremium = parseFloat(body.premiumPaid) || 0;
-    const safeANP = parseFloat(body.anp) || 0;
-
     const { data, error } = await supabase.from('az_submissions').insert([{
-      profile_id: profileId, // Added profile_id for user visibility linkage
+      profile_id: profileId,
       client_name: `${body.clientFirstName} ${body.clientLastName}`,
       client_email: body.clientEmail,
       policy_id: finalPolicyId,
-      premium_paid: safePremium,
-      anp: safeANP,
+      premium_paid: parseFloat(body.premiumPaid) || 0,
+      anp: parseFloat(body.anp) || 0,
       payment_interval: JSON.stringify(body.modeOfPayment),
       mode_of_payment: body.modeOfPayment,
       serial_id: serialId,
@@ -285,10 +277,7 @@ app.post('/api/monitoring/submit', async (req, res) => {
       attachments: []
     }]).select().single();
 
-    if (error) {
-      console.error("Submission Insert Failed:", error);
-      throw error;
-    }
+    if (error) throw error;
 
     if (!isManual && body.serialNumber) await supabase.from('serial_number').update({ is_issued: true }).eq('serial_number', body.serialNumber);
 
@@ -299,15 +288,12 @@ app.post('/api/monitoring/submit', async (req, res) => {
   }
 });
 
-// 3. GET DETAILS (Strict 8->9 Digit Check)
+// 3. GET DETAILS
 app.get('/api/submissions/details/:serialNumber', async (req, res) => {
   try {
     const { serialNumber } = req.params;
-
-    // A. Exact Match
     let { data: sData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
 
-    // B. Strict Check (9-digit -> 8-digit)
     if (!sData && serialNumber.length === 9) {
       const parentSerial = serialNumber.slice(0, 8);
       const { data: parentData } = await supabase.from('serial_number')
@@ -315,8 +301,7 @@ app.get('/api/submissions/details/:serialNumber', async (req, res) => {
         .eq('serial_number', parentSerial)
         .limit(1)
         .maybeSingle();
-
-      if (parentData) sData = parentData; // Found parent
+      if (parentData) sData = parentData;
     }
 
     if (!sData) return res.status(404).json({ success: false, message: 'Serial not found' });
@@ -362,10 +347,8 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
     let serialIdToUse = null;
     let isMigration = false;
 
-    // A. Check Exact Match
     let { data: serialData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
 
-    // B. Check Parent Match (Migration)
     if (!serialData && serialNumber.length === 9) {
       const parentSerial = serialNumber.slice(0, 8);
       const { data: parentData } = await supabase.from('serial_number')
@@ -373,7 +356,6 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
         .eq('serial_number', parentSerial)
         .limit(1)
         .maybeSingle();
-
       if (parentData) {
         serialData = parentData;
         isMigration = true;
@@ -386,16 +368,13 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
     const { data: existing } = await supabase.from('az_submissions').select('*').eq('serial_id', serialIdToUse).limit(1).maybeSingle();
     if (!existing) return res.status(404).json({ message: 'Submission not found' });
 
-    // C. Perform Migration if needed
     if (isMigration) {
-      console.log(`Migrating Serial ID ${serialIdToUse}: 8-digits -> ${serialNumber}`);
       await supabase.from('serial_number').update({ serial_number: serialNumber }).eq('serial_id', serialIdToUse);
     }
 
     const newFilesForDB = [];
     const emailAttachments = [];
 
-    // User Files
     if (req.files) {
       for (const f of req.files) {
         try {
@@ -406,17 +385,12 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
       }
     }
 
-    // Generated PDF
-    let generatedPdfUrl = null;
     const pdfBuffer = await generateApplicationPDF(parsedData, serialNumber);
     const pdfFilename = `Application_${serialNumber}.pdf`;
-
     const pdfUpload = await uploadBufferToSupabase(pdfBuffer, pdfFilename, existing.sub_id);
     newFilesForDB.push(pdfUpload);
-    generatedPdfUrl = pdfUpload.fileUrl;
     emailAttachments.push({ filename: pdfFilename, content: pdfBuffer });
 
-    // Update DB
     const { data: updated, error } = await supabase.from('az_submissions').update({
       form_type: parsedData.formType, mode_of_payment: parsedData.modeOfPayment,
       attachments: [...(existing.attachments || []), ...newFilesForDB]
@@ -424,7 +398,6 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
 
     if (error) throw error;
 
-    // Email
     try {
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -433,17 +406,16 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
         text: `New Application Received.\n\nSerial: ${serialNumber}\nClient: ${existing.client_name}\n\nDocuments attached.`,
         attachments: emailAttachments
       });
-      console.log("✅ Email Sent!");
-    } catch (err) { console.error("❌ Email failed:", err); }
+      console.log("Email Sent!");
+    } catch (err) { console.error("Email failed:", err); }
 
-    res.json({ success: true, data: updated, generatedPdfUrl });
+    res.json({ success: true, data: updated, generatedPdfUrl: pdfUpload.fileUrl });
   } catch (e) { console.error(e); res.status(500).json({ success: false, message: e.message }); }
 });
 
 // --- UPDATED MONITORING ENDPOINTS ---
 
 app.get('/api/monitoring/all', async (req, res) => {
-  // FIX: select(..., agency(name)) based on SCHEMA
   let query = supabase
     .from('az_submissions')
     .select(`*, policy (policy_type), serial_number (serial_number), profiles (first_name, last_name), agency (name)`)
@@ -461,16 +433,14 @@ app.get('/api/monitoring/all', async (req, res) => {
     policy_type: i.policy?.policy_type,
     serial_number: i.serial_number?.serial_number,
     intermediary_name: i.profiles ? `${i.profiles.first_name || ''} ${i.profiles.last_name || ''}`.trim() : 'Unknown',
-    agency: i.agency?.name, // Direct link
+    agency: i.agency?.name,
     created_at: i.issued_at
   }));
 
   res.json({ success: true, data: flattened });
 });
 
-// --- UPDATED CUSTOMERS ENDPOINT (FIXED BLANK DATA) ---
 app.get('/api/customers', async (req, res) => {
-  // FIX: select(..., payment_history(*)) to include history
   let query = supabase.from('az_submissions')
     .select(`*, policy (policy_type), serial_number (serial_number), agency(name), payment_history(*)`);
 
@@ -492,16 +462,13 @@ app.get('/api/customers', async (req, res) => {
           submissions: []
         };
       }
-
-      // FLATTEN THE DATA SO FRONTEND CAN READ IT EASILY
       const flatSubmission = {
         ...s,
         policy_type: s.policy?.policy_type,
         serial_number: s.serial_number?.serial_number,
-        agency: s.agency?.name, // Use 'name' from Agency/Direct
-        payment_history: s.payment_history || [] // Ensure array
+        agency: s.agency?.name,
+        payment_history: s.payment_history || []
       };
-
       map[s.client_email].submissions.push(flatSubmission);
     }
   });
@@ -510,54 +477,33 @@ app.get('/api/customers', async (req, res) => {
 
 app.patch('/api/form-submissions/:id/status', async (req, res) => {
   const { id } = req.params; const { status } = req.body;
-
   const updateData = { status };
   if (status === 'Issued') {
     updateData.date_issued = new Date().toISOString();
   }
-
   await supabase.from('az_submissions').update(updateData).eq('sub_id', id);
   res.json({ success: true });
 });
+
 app.post('/api/submissions/:id/pay', async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Validate ID
-    if (!id) {
-      return res.status(400).json({ success: false, message: 'Invalid submission ID' });
-    }
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid submission ID' });
 
     const { data: policy, error: fetchError } = await supabase.from('az_submissions').select('*').eq('sub_id', id).limit(1).maybeSingle();
+    if (fetchError || !policy) return res.status(404).json({ success: false, message: 'Policy not found' });
 
-    if (fetchError) {
-      console.error('Error fetching policy:', fetchError);
-      return res.status(500).json({ success: false, message: 'Database error: ' + fetchError.message });
-    }
-
-    if (!policy) {
-      return res.status(404).json({ success: false, message: 'Policy not found' });
-    }
-
-    // 1. Record in History
-    // Parse amount to ensure numeric (remove commas if string, etc)
-    let totalPremium = 0;
-    if (policy.premium_paid) {
-      totalPremium = typeof policy.premium_paid === 'string'
+    let totalPremium = typeof policy.premium_paid === 'string'
         ? parseFloat(policy.premium_paid.replace(/,/g, ''))
         : parseFloat(policy.premium_paid);
-    }
 
-    // Calculate Installment Amount based on Mode
     let installmentAmount = totalPremium;
     switch (policy.mode_of_payment) {
       case 'Monthly': installmentAmount = totalPremium / 12; break;
       case 'Quarterly': installmentAmount = totalPremium / 4; break;
       case 'Semi-Annual': installmentAmount = totalPremium / 2; break;
-      default: installmentAmount = totalPremium; break; // Annual or others
+      default: break;
     }
-
-    // Round to 2 decimals
     installmentAmount = Math.round(installmentAmount * 100) / 100;
 
     const historyPayload = {
@@ -566,51 +512,34 @@ app.post('/api/submissions/:id/pay', async (req, res) => {
       period_covered: policy.next_payment_date,
       payment_date: new Date().toISOString()
     };
-    console.log('Inserting History:', historyPayload);
 
     const { error: histError } = await supabase.from('payment_history').insert([historyPayload]);
+    if (histError) throw histError;
 
-    if (histError) {
-      console.error('History Insert Error:', histError);
-      return res.status(500).json({ success: false, message: 'Failed to record payment history: ' + histError.message });
-    }
-    console.log('History Insert Success');
-
-    // 2. Rollover Date
     const newDueDate = calculateNextPaymentDate(policy.next_payment_date, policy.mode_of_payment);
+    const updatePayload = { next_payment_date: newDueDate, is_paid: false };
 
-    // 3. Update Submission (Reset is_paid to false for next cycle, update date_issued if not set)
-    const updatePayload = {
-      next_payment_date: newDueDate,
-      is_paid: false
-    };
-
-    // Set date_issued if this is the first payment and status is Issued
     if (policy.status === 'Issued' && !policy.date_issued) {
       updatePayload.date_issued = new Date().toISOString();
     }
 
     const { error: updateError } = await supabase.from('az_submissions').update(updatePayload).eq('sub_id', id);
-
-    if (updateError) {
-      console.error('Update Error:', updateError);
-      return res.status(500).json({ success: false, message: 'Failed to update payment: ' + updateError.message });
-    }
+    if (updateError) throw updateError;
 
     res.json({ success: true, message: 'Payment recorded successfully', nextDate: newDueDate });
   } catch (e) {
     console.error('PAY ENDPOINT ERROR:', e);
-    res.status(500).json({ success: false, message: e.message || 'Internal server error' });
+    res.status(500).json({ success: false, message: e.message });
   }
 });
 
-// Performance endpoint for AL dashboard
+// --- UPDATED PERFORMANCE ENDPOINT (ACTIVE = 1 HOUR) ---
 app.get('/api/performance/all', async (req, res) => {
   try {
     const { profileId } = req.query;
     let subordinateIds = [];
 
-    // 1. If explicit profileId (AL/Leader), fetch their team (AP hierarchy)
+    // 1. If explicit profileId (AL/Leader), fetch their team
     if (profileId) {
       const { data: team, error: teamError } = await supabase
         .from('user_hierarchy')
@@ -623,7 +552,6 @@ app.get('/api/performance/all', async (req, res) => {
       if (team && team.length > 0) {
         subordinateIds = team.map(t => t.user_id);
       } else {
-        // No team members found
         return res.json({
           success: true,
           data: {
@@ -637,20 +565,16 @@ app.get('/api/performance/all', async (req, res) => {
       }
     }
 
-    // 2. Query Submissions
+    // 2. Query Submissions - Include last_submission_at in join
     let query = supabase
       .from('az_submissions')
-      .select('*, profiles (first_name, last_name)') // Join to get Agent Name
+      .select('*, profiles (first_name, last_name, last_submission_at)')
       .order('issued_at', { ascending: false });
 
     if (subordinateIds.length > 0) {
       query = query.in('profile_id', subordinateIds);
     } else if (profileId) {
-      // Fallback: If profileId was provided but matched no hierarchy (and we didn't return early),
-      // it means they have no team. Logic above handles this, but as safety:
-      query = query.eq('profile_id', profileId); // Only show their own sales if no team?
-      // Actually the requirement is "I assigned ap", so specific to team.
-      // We'll stick to the early return above for empty team.
+      query = query.eq('profile_id', profileId);
     }
 
     const { data: submissions, error } = await query;
@@ -658,31 +582,40 @@ app.get('/api/performance/all', async (req, res) => {
 
     const performanceByAP = {};
     const teamStats = {
-      totalTeamANP: 0,
-      totalMonthlyANP: 0,
-      totalSubmissions: 0,
-      totalIssued: 0,
-      totalPending: 0,
-      totalDeclined: 0,
-      averageConversionRate: 0
+      totalTeamANP: 0, totalMonthlyANP: 0, totalSubmissions: 0,
+      totalIssued: 0, totalPending: 0, totalDeclined: 0, averageConversionRate: 0
     };
 
     let totalConversionRates = 0;
     let apCountForConversion = 0;
 
+    // --- 1 HOUR WINDOW (3600000 milliseconds) ---
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const now = new Date();
+
     submissions.forEach(sub => {
-      // Determine AP Name
-      // Prefer Profile Name, fallback to submission_type only if profile missing (legacy data)
       let apName = 'Unknown Agent';
+      let isActive = false;
+
       if (sub.profiles) {
         apName = `${sub.profiles.first_name} ${sub.profiles.last_name}`.trim();
+
+        // Check if Last Submission was within 1 hour
+        if (sub.profiles.last_submission_at) {
+          const lastActive = new Date(sub.profiles.last_submission_at);
+          const diff = now - lastActive;
+          if (diff < ONE_HOUR_MS) {
+            isActive = true;
+          }
+        }
       } else if (sub.submission_type) {
-        apName = sub.submission_type; // Fallback
+        apName = sub.submission_type;
       }
 
       if (!performanceByAP[apName]) {
         performanceByAP[apName] = {
           apName,
+          status: isActive ? 'Active' : 'Inactive',
           totalANP: 0,
           monthlyANP: 0,
           totalSubmissions: 0,
@@ -692,39 +625,31 @@ app.get('/api/performance/all', async (req, res) => {
           conversionRate: 0,
           submissions: []
         };
+      } else {
+        // Update status if we encounter the agent again and they are now calculated as active
+        if (isActive) performanceByAP[apName].status = 'Active';
       }
 
-      // Use premium_paid as Full Amount per user request "total anp should be the premium paid"
       const totalPremium = parseFloat(sub.premium_paid) || 0;
-
-      // Calculate Modal/Installment Premium for "Monthly ANP" logic
       let modalPremium = totalPremium;
-      // Normalizing mode string just in case
       const mode = (sub.mode_of_payment || '').trim();
 
       if (mode === 'Monthly') modalPremium = totalPremium / 12;
       else if (mode === 'Quarterly') modalPremium = totalPremium / 4;
       else if (mode === 'Semi-Annual') modalPremium = totalPremium / 2;
-      // Annual remains totalPremium
 
-      // Update Stats per AP
       performanceByAP[apName].totalSubmissions++;
       performanceByAP[apName].submissions.push(sub);
-
-      // Update Team Stats
       teamStats.totalSubmissions++;
 
       if (sub.status === 'Issued') {
         performanceByAP[apName].totalANP += totalPremium;
         performanceByAP[apName].issued++;
-
         teamStats.totalTeamANP += totalPremium;
         teamStats.totalIssued++;
 
-        const now = new Date();
         const subDate = new Date(sub.issued_at);
         if (subDate.getMonth() === now.getMonth() && subDate.getFullYear() === now.getFullYear()) {
-          // Monthly ANP stat uses the Modal/Installment Amount
           performanceByAP[apName].monthlyANP += modalPremium;
           teamStats.totalMonthlyANP += modalPremium;
         }
@@ -737,7 +662,6 @@ app.get('/api/performance/all', async (req, res) => {
       }
     });
 
-    // Calculate Conversion Rates
     const performanceList = Object.values(performanceByAP);
     performanceList.forEach(ap => {
       if (ap.totalSubmissions > 0) {
@@ -751,17 +675,11 @@ app.get('/api/performance/all', async (req, res) => {
       teamStats.averageConversionRate = (totalConversionRates / apCountForConversion).toFixed(1);
     }
 
-    res.json({
-      success: true,
-      data: {
-        performanceByAP: performanceList,
-        teamStats
-      }
-    });
+    res.json({ success: true, data: { performanceByAP: performanceList, teamStats } });
   } catch (e) {
     console.error('Performance endpoint error:', e);
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
