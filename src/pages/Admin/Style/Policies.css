@@ -191,6 +191,16 @@
     background-color: #ffeaea;
 }
 
+.header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.add-policy-btn {
+    white-space: nowrap;
+}
+
 /* ================= MODAL ================= */
 .policy-modal {
     background: #fff;

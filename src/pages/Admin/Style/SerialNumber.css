@@ -13,7 +13,7 @@
 .serial-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  margin-top: 4px;
   box-shadow: 0 2px 8px rgba(0, 50, 102, 0.1);
   background: #FAFAFA;
 }
@@ -21,7 +21,7 @@
 .serial-table th,
 .serial-table td {
   border: 1px solid var(--border-color);
-  padding: 12px;
+  padding: 8px 10px;
   text-align: left;
 }
 
@@ -49,7 +49,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
 }
 
 .table-header h3 {
@@ -57,12 +57,22 @@
   font-size: 20px;
   color: #333;
 }
-
+.view-btn {
+  background-color: var(--primary-color);
+  color: #FAFAFA;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
 .import-btn {
   background-color: var(--primary-color);
   color: #FAFAFA;
   border: none;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
@@ -74,6 +84,66 @@
   background-color: var(--secondary-color);
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 50, 102, 0.2);
+}
+/* Container styling */
+.pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 30px;
+    padding-bottom: 40px;
+}
+
+/* Arrow buttons styling */
+.pagination-arrow-btn {
+    background-color: #ffffff;
+    border: 1px solid #e0e4ec;
+    color: #003266; /* Matching your theme blue */
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.pagination-arrow-btn:hover:not(:disabled) {
+    background-color: #f8f9fa;
+    border-color: #003266;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.pagination-arrow-btn:disabled {
+    background-color: #f5f5f5;
+    color: #bdc3c7;
+    border-color: #eee;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Text styling */
+.pagination-info {
+    display: flex;
+    gap: 5px;
+    font-size: 14px;
+    color: #4a5568;
+    font-weight: 500;
+    padding: 0 10px;
+}
+
+.current-page-text {
+    color: #003266;
+    font-weight: 700;
+}
+
+.total-pages-text {
+    color: #718096;
 }
 
 /* ================= MODAL STYLES ================= */
@@ -93,7 +163,7 @@
 
 .modal {
   background: #FAFAFA;
-  padding: 30px 35px;
+  padding: 18px 22px;
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 50, 102, 0.15);
   width: 400px;
@@ -104,17 +174,18 @@
 
 .modal h2 {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   font-size: 22px;
   color: var(--primary-color);
   font-weight: 600;
 }
 
+
 .modal input[type="file"],
 .modal select {
   width: 100%;
-  padding: 10px;
-  margin-bottom: 20px;
+  padding: 8px;
+  margin-bottom: 12px;
   border-radius: 6px;
   border: 1px solid var(--border-color);
   font-size: 14px;
@@ -131,14 +202,14 @@
 .modal-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
 }
 
 .submit-btn {
   background-color: var(--primary-color);
   color: #FAFAFA;
   border: none;
-  padding: 10px 18px;
+  padding: 8px 14px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
@@ -156,7 +227,7 @@
   background-color: #95a5a6;
   color: #FAFAFA;
   border: none;
-  padding: 10px 18px;
+  padding: 8px 14px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
@@ -169,15 +240,11 @@
   transform: translateY(-2px);
 }
 
-.cancel-btn:hover {
-  background-color: #7f8c8d;
-}
-
 /* ================= LOADER ================= */
 .loader {
   font-size: 24px;
   text-align: center;
-  margin-top: 100px;
+  margin-top: 60px;
   color: #4b63ff;
 }
 
@@ -189,20 +256,19 @@
   padding: 4px 8px;
 }
 
-
 /* ================= CARD GRID ================= */
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1px;
-  margin-bottom: 25px;
-  width: 98%;
+  gap: 8px;
+  margin-bottom: 12px;
+  width: 100%;
 }
 
 /* ================= CARD ================= */
 .card {
   background: #FAFAFA;
-  padding: 29px 20px;
+  padding: 16px 16px;
   border-radius: 12px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
   text-align: center;
@@ -226,32 +292,30 @@
 
 .card h2 {
   margin-top: 6px;
-  font-size: 28px;
+  font-size: 26px;
   color: #2c3e50;
 }
 
 /* Card Variants */
-.card.used {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: #FAFAFA;
-}
-
-.card.used p,
-.card.used h2 {
-  color: #FAFAFA;
-}
-
+.card.used,
 .card.issued {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
   color: #FAFAFA;
 }
 
+.card.used p,
+.card.used h2,
 .card.issued p,
 .card.issued h2 {
   color: #FAFAFA;
 }
 
 /* ================= SORTING BUTTONS ================= */
+.table-controls {
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
 .table-controls button {
   background-color: var(--primary-color);
   color: #FAFAFA;
@@ -277,11 +341,6 @@
   margin-left: 4px;
 }
 
-/* Optional: align the controls nicely on smaller screens */
-.table-controls {
-  flex-wrap: wrap;
-}
-
 .table-controls select {
   padding: 6px 10px;
   border-radius: 6px;
@@ -289,7 +348,6 @@
   font-size: 14px;
   cursor: pointer;
 }
-
 
 /* ================= ANIMATION ================= */
 @keyframes fadeIn {

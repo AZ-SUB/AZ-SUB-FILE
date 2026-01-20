@@ -477,6 +477,31 @@ input:read-only {
 .modal-submit:active {
   transform: translateY(0);
 }
+/* Status Badges */
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+.status-badge.active { background: #e6fffa; color: #234e52; border: 1px solid #b2f5ea; }
+.status-badge.inactive { background: #fff5f5; color: #742a2a; border: 1px solid #feb2b2; }
+
+/* The Toggle Button Styles */
+.btn-active-toggle {
+  background-color: #28a745; /* Green for Activate */
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-delete {
+  background-color: #dc3545; /* Red for Inactive */
+  color: white;
+  /* Keep your existing button styles */
+}
 
 /* ================= HIERARCHY SECTION ================= */
 .hierarchy-section {
