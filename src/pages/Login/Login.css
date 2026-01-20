@@ -187,3 +187,37 @@
     font-size: 24px;
   }
 }
+
+/* --- Add these styles to the bottom of Login.css --- */
+
+/* Wrapper to position the toggle button inside the input area */
+.password-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* Ensure text doesn't overlap with the icon */
+.password-wrapper .form-input {
+  padding-right: 50px;
+}
+
+/* The toggle button styling */
+.password-toggle-btn {
+  position: absolute;
+  right: 15px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.3s ease;
+}
+
+.password-toggle-btn:hover {
+  color: #003781;
+}
