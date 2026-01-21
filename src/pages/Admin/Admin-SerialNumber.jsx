@@ -248,7 +248,10 @@ const AdminSe1rialNumber = () => {
             </button>
             {showProfileMenu && (
               <div className="admin-profile-dropdown">
-                <a href="#" className="admin-dropdown-item">
+                <a onClick={() => navigate("/admin/SerialNumber")} className="admin-dropdown-item">
+                  <i className="fa-solid fa-barcode"></i> Serial Numbers
+                </a>
+                <a onClick={() => navigate("/admin/Profile")} className="admin-dropdown-item">
                   <i className="fa-solid fa-user"></i> Profile
                 </a>
                 <a href="#" className="admin-dropdown-item">
