@@ -14,6 +14,13 @@ const AdminPolicies = () => {
     // Policies Data
     const [policies, setPolicies] = useState([]);
     const [loading, setLoading] = useState(true);
+    // --- ADD THESE TWO BLOCKS BELOW ---
+const [statusFilter, setStatusFilter] = useState("active"); 
+
+// Derived state for filtering
+const filteredPolicies = policies.filter(policy => {
+    return statusFilter === "active" ? policy.active_status === true : policy.active_status === false;
+});
 
     // Agencies Data
     const [agencies, setAgencies] = useState([]);
@@ -231,7 +238,7 @@ const AdminPolicies = () => {
         navigate("/");
     };
 
-
+    
     return (
         <div className="admin-container">
             {/* SIDEBAR */}
@@ -301,12 +308,23 @@ const AdminPolicies = () => {
             {/* MAIN CONTENT */}
             <main className={`admin-main-content ${sidebarOpen ? '' : 'expanded'}`}>
                 <div className="policies-container">
-                    <div className="policies-header">
-                        <h2 className="policies-title">Policy Management</h2>
-                        <button className="add-policy-btn" onClick={openAddModal}>
-                            <i className="fa-solid fa-plus"></i> Add New Policy
-                        </button>
-                    </div>
+<div className="policies-header">
+    <h2 className="policies-title">Policy Management</h2>
+    
+    <div className="header-actions">
+        <button 
+            className="add-policy-btn" 
+            onClick={() => setStatusFilter(statusFilter === "active" ? "archived" : "active")}
+        >
+            <i className={`fa-solid ${statusFilter === "active" ? "fa-box-archive" : "fa-check-circle"}`}></i>
+            {statusFilter === "active" ? " View Archived Policies" : " View Active Policies"}
+        </button>
+
+        <button className="add-policy-btn" onClick={openAddModal}>
+            <i className="fa-solid fa-plus"></i> Add New Policy
+        </button>
+    </div>
+</div>
 
                     {loading ? (
                         <p className="loader">Loading policies...</p>
@@ -323,62 +341,63 @@ const AdminPolicies = () => {
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {policies.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="6">No policies found.</td>
-                                        </tr>
-                                    ) : (
-                                        policies.map((policy, index) => {
-                                            // Helper to get agency name safely
-                                            const getAgencyName = () => {
-                                                if (policy.agency_details?.name) return policy.agency_details.name;
-                                                // Fallback: finding in agencies list
-                                                const found = agencies.find(a => a.agency_id === policy.agency);
-                                                return found ? found.name : 'No Agency';
-                                            };
+<tbody>
+    {filteredPolicies.length === 0 ? (
+        // Display this row if the list is empty
+        <tr>
+            <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                <i className="fa-solid fa-folder-open" style={{ display: 'block', fontSize: '24px', marginBottom: '10px', opacity: '0.5' }}></i>
+                No {statusFilter} policies found.
+            </td>
+        </tr>
+    ) : (
+        // Map through the filtered policies if they exist
+        filteredPolicies.map((policy) => {
+            // Logic to determine the agency name
+            const getAgencyName = () => {
+                if (policy.agency_details?.name) return policy.agency_details.name;
+                const found = agenciesList.find(a => a.agency_id === policy.agency);
+                return found ? found.name : 'No Agency';
+            };
 
-                                            return (
-                                                <tr key={policy.policy_id}>
-                                                    <td>{policy.policy_name}</td>
-                                                    <td>
-                                                        <span className="policy-type-badge">{policy.form_type || 'N/A'}</span>
-                                                    </td>
-                                                    <td>
-                                                        {policy.request_type || '-'}
-                                                    </td>
-                                                    <td>
-                                                        <span className="agency-badge">{getAgencyName()}</span>
-                                                    </td>
-                                                    <td>
-                                                        <span className={`status-badge ${policy.active_status ? 'status-active' : 'status-inactive'}`}>
-                                                            {policy.active_status ? 'Active' : 'Archived'}
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        <div className="policy-actions">
-                                                            <button
-                                                                className={`toggle-btn ${policy.active_status ? 'btn-deactivate' : 'btn-activate'}`}
-                                                                title={policy.active_status ? 'Archive Policy' : 'Restore Policy'}
-                                                                onClick={() => openConfirmModal(policy)}
-                                                            >
-                                                                <i className={`fa-solid ${policy.active_status ? 'fa-box-archive' : 'fa-rotate-left'}`}></i>
-                                                                {policy.active_status ? 'Archive' : 'Restore'}
-                                                            </button>
-                                                            <button
-                                                                className="edit-btn"
-                                                                title="Edit"
-                                                                onClick={() => openEditModal(policy)}
-                                                            >
-                                                                <i className="fa-solid fa-pen"></i>
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
+            return (
+                <tr key={policy.policy_id}>
+                    <td><strong>{policy.policy_name}</strong></td>
+                    <td><span className="policy-type-badge">{policy.form_type || 'N/A'}</span></td>
+                    <td>{policy.request_type || '-'}</td>
+                    <td><span className="agency-badge">{getAgencyName()}</span></td>
+                    <td>
+                        <span className={`status-badge ${policy.active_status ? 'status-active' : 'status-inactive'}`}>
+                            {policy.active_status ? 'Active' : 'Archived'}
+                        </span>
+                    </td>
+                    <td>
+                        <div className="policy-actions">
+                            {/* The Toggle Button (Archive/Restore) */}
+                            <button
+                                className={`toggle-btn ${policy.active_status ? 'btn-deactivate' : 'btn-activate'}`}
+                                onClick={() => openConfirmModal(policy)}
+                                title={policy.active_status ? 'Archive Policy' : 'Restore Policy'}
+                            >
+                                <i className={`fa-solid ${policy.active_status ? 'fa-box-archive' : 'fa-rotate-left'}`}></i>
+                                {policy.active_status ? ' Archive' : ' Restore'}
+                            </button>
+                            
+                            {/* The Edit Button */}
+                            <button 
+                                className="edit-btn" 
+                                onClick={() => openEditModal(policy)}
+                                title="Edit Policy"
+                            >
+                                <i className="fa-solid fa-pen"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            );
+        })
+    )}
+</tbody>
                             </table>
                         </div>
                     )}
