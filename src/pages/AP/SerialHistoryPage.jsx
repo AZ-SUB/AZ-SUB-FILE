@@ -57,7 +57,7 @@ const SerialHistoryPage = () => {
                         <div style={{ position: 'relative' }}>
                             <input
                                 type="text"
-                                placeholder="🔍 Search Serial or Name..."
+                                placeholder=" Search Serial or Name..."
                                 value={searchTerm}
                                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                                 style={{

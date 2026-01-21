@@ -257,7 +257,7 @@ const DashboardPage = () => {
                         <div className="stat-label" style={{ color: '#0055b8' }}>Tools</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <span style={{ fontSize: '32px' }}>📅</span>
+                        <span style={{ fontSize: '32px' }}></span>
                         <div>
                             <div className="stat-value" style={{ fontSize: '18px', marginBottom: '0' }}>Calendar</div>
                             <div className="stat-subtext">Schedule & Actions</div>
@@ -434,16 +434,16 @@ const DashboardPage = () => {
                                         <div className="widget-title">Quick Actions</div>
                                         <div className="quick-actions">
                                             <div className="quick-action-btn" onClick={() => { setShowCalendarModal(false); navigate('/monitoring'); }}>
-                                                <span style={{ fontSize: '24px' }}>📝</span> New Request
+                                                <span style={{ fontSize: '24px' }}></span> New Request
                                             </div>
                                             <div className="quick-action-btn" onClick={() => { setShowCalendarModal(false); navigate('/submission'); }}>
-                                                <span style={{ fontSize: '24px' }}>📄</span> Submit Docs
+                                                <span style={{ fontSize: '24px' }}></span> Submit Docs
                                             </div>
                                             <div className="quick-action-btn" onClick={() => { setShowCalendarModal(false); navigate('/customers'); }}>
-                                                <span style={{ fontSize: '24px' }}>👥</span> Profiles
+                                                <span style={{ fontSize: '24px' }}></span> Profiles
                                             </div>
                                             <div className="quick-action-btn" onClick={() => { setShowCalendarModal(false); navigate('/doc-history'); }}>
-                                                <span style={{ fontSize: '24px' }}>📁</span> History
+                                                <span style={{ fontSize: '24px' }}></span> History
                                             </div>
                                         </div>
                                     </div>

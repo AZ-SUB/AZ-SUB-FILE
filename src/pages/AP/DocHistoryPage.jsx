@@ -87,7 +87,7 @@ const DocHistoryPage = () => {
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <input
                             type="text"
-                            placeholder="🔍 Search client, serial, or policy..."
+                            placeholder=" Search client, serial, or policy..."
                             value={searchTerm}
                             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                             style={{
