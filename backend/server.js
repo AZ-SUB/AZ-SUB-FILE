@@ -6,17 +6,21 @@ const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
+
 // Bypass SSL issues in dev
 if (process.env.NODE_ENV === 'development') {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -29,11 +33,14 @@ const upload = multer({
   }
 });
 
+
 // --- CONNECTION ---
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ibbjsjvjfeymglpsvgap.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImliYmpzanZqZmV5bWdscHN2Z2FwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTMwODM1OCwiZXhwIjoyMDgwODg0MzU4fQ._gIdqP80fwN_6Qu_Pgqi3ecYJHEYuZmJjboBnfs9zv0';
 
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -42,14 +49,17 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASSWORD }
 });
 
+
 const ALLIANZ_HO_EMAIL = process.env.ALLIANZ_HO_EMAIL;
 const SUPABASE_BUCKET = 'policy-documents';
+
 
 // Check Email Connection
 transporter.verify((error) => {
   if (error) console.log("Email Connection Error:", error);
   else console.log("Email Server is Ready");
 });
+
 
 // --- HELPER FUNCTIONS ---
 function calculateNextPaymentDate(policyDate, mode) {
@@ -65,6 +75,7 @@ function calculateNextPaymentDate(policyDate, mode) {
   return date.toISOString().split('T')[0];
 }
 
+
 async function uploadFileToSupabase(file, subId) {
   try {
     const timestamp = Date.now();
@@ -77,6 +88,7 @@ async function uploadFileToSupabase(file, subId) {
   } catch (err) { console.error('Upload failed:', err); throw err; }
 }
 
+
 async function uploadBufferToSupabase(buffer, filename, subId) {
   try {
     const timestamp = Date.now();
@@ -88,6 +100,7 @@ async function uploadBufferToSupabase(buffer, filename, subId) {
   } catch (err) { console.error('Buffer Upload failed:', err); throw err; }
 }
 
+
 // --- PDF GENERATOR ---
 function generateApplicationPDF(data, serialNumber) {
   return new Promise((resolve, reject) => {
@@ -97,8 +110,10 @@ function generateApplicationPDF(data, serialNumber) {
     doc.on('end', () => resolve(Buffer.concat(buffers)));
     doc.on('error', reject);
 
+
     doc.fontSize(20).text('Application Summary', { align: 'center' }).moveDown();
     doc.fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' }).moveDown();
+
 
     doc.fontSize(14).text('Client Information', { underline: true }).moveDown(0.5);
     doc.fontSize(10)
@@ -106,12 +121,14 @@ function generateApplicationPDF(data, serialNumber) {
       .text(`Name: ${data.clientFirstName} ${data.clientLastName}`)
       .text(`Email: ${data.clientEmail || 'N/A'}`).moveDown();
 
+
     doc.fontSize(14).text('Policy Details', { underline: true }).moveDown(0.5);
     doc.fontSize(10)
       .text(`Policy Type: ${data.policyType}`)
       .text(`Form Category: ${data.formType}`)
       .text(`Mode of Payment: ${data.modeOfPayment}`)
       .text(`Policy Date: ${data.policyDate}`).moveDown();
+
 
     if (data.medical) {
       doc.fontSize(14).text('Medical & Personal Declaration', { underline: true }).moveDown(0.5);
@@ -128,9 +145,12 @@ function generateApplicationPDF(data, serialNumber) {
   });
 }
 
+
 // --- ENDPOINTS ---
 
+
 app.get('/api/health', (req, res) => res.status(200).json({ success: true, status: 'ok' }));
+
 
 // GET ACTIVE POLICIES (RESTORED - Fixes 404 Error)
 app.get('/api/policies/active', async (req, res) => {
@@ -141,7 +161,9 @@ app.get('/api/policies/active', async (req, res) => {
       .eq('active_status', true)
       .order('policy_name', { ascending: true });
 
+
     if (error) throw error;
+
 
     res.json({ success: true, data: data || [] });
   } catch (e) {
@@ -150,11 +172,13 @@ app.get('/api/policies/active', async (req, res) => {
   }
 });
 
+
 // 1. CHECK SERIAL (System Only)
 app.get('/api/serial-numbers/available/:policyType', async (req, res) => {
   try {
     const { policyType } = req.params;
     const typeToSearch = policyType === 'Allianz Well' ? 'Allianz Well' : 'Default';
+
 
     const { data, error } = await supabase.from('serial_number')
       .select('*')
@@ -163,12 +187,15 @@ app.get('/api/serial-numbers/available/:policyType', async (req, res) => {
       .limit(1)
       .maybeSingle();
 
+
     if (error) {
       console.error("DB Check Error:", error);
       return res.status(500).json({ success: false, message: "DB Error" });
     }
 
+
     if (!data) return res.status(404).json({ success: false, message: `No available serials for ${policyType}` });
+
 
     res.json({ success: true, requiresSerial: true, serialNumber: data.serial_number.toString() });
   } catch (e) {
@@ -177,14 +204,17 @@ app.get('/api/serial-numbers/available/:policyType', async (req, res) => {
   }
 });
 
+
 // 2. SUBMIT MONITORING (WITH FIX FOR ACTIVE STATUS)
 app.post('/api/monitoring/submit', async (req, res) => {
   try {
     const body = req.body;
     console.log(`Processing Submission: ${body.policyType} | Serial: ${body.serialNumber}`);
 
+
     const MANUAL_POLICIES = ['Eazy Health', 'Allianz Fundamental Cover', 'Allianz Secure Pro'];
     const isManual = MANUAL_POLICIES.includes(body.policyType);
+
 
     // --- POLICY LOOKUP ---
     let finalPolicyId = null;
@@ -197,8 +227,10 @@ app.post('/api/monitoring/submit', async (req, res) => {
     }
     if (!finalPolicyId) throw new Error(`Policy Type '${body.policyType}' not found.`);
 
+
     // --- PROFILE LOOKUP (CRITICAL FIX) ---
     let profileId = body.profileId || null;
+
 
     if (!profileId && body.intermediaryEmail) {
       // Case-insensitive lookup by email
@@ -206,6 +238,7 @@ app.post('/api/monitoring/submit', async (req, res) => {
         .select('id')
         .ilike('email', body.intermediaryEmail.trim())
         .maybeSingle();
+
 
       if (profileData) {
         profileId = profileData.id;
@@ -215,6 +248,7 @@ app.post('/api/monitoring/submit', async (req, res) => {
       }
     }
 
+
     // --- MANUALLY UPDATE AGENT STATUS ---
     // Update timestamp to NOW.
     if (profileId) {
@@ -223,9 +257,11 @@ app.post('/api/monitoring/submit', async (req, res) => {
         .update({ last_submission_at: new Date().toISOString() })
         .eq('id', profileId);
 
+
       if (updateError) console.error("Failed to update active status:", updateError.message);
       else console.log("Agent Status Updated to Active");
     }
+
 
     // --- SERIAL LOGIC ---
     let serialId = null;
@@ -245,6 +281,7 @@ app.post('/api/monitoring/submit', async (req, res) => {
           .select('serial_id')
           .single();
 
+
         if (createError) throw new Error("Serial Creation Failed: " + createError.message);
         serialId = newSerial.serial_id;
       }
@@ -255,9 +292,11 @@ app.post('/api/monitoring/submit', async (req, res) => {
         .limit(1)
         .maybeSingle();
 
+
       if (!sysSerial) throw new Error(`System Serial ${body.serialNumber} not found.`);
       serialId = sysSerial.serial_id;
     }
+
 
     // --- INSERT SUBMISSION ---
     const { data, error } = await supabase.from('az_submissions').insert([{
@@ -277,9 +316,12 @@ app.post('/api/monitoring/submit', async (req, res) => {
       attachments: []
     }]).select().single();
 
+
     if (error) throw error;
 
+
     if (!isManual && body.serialNumber) await supabase.from('serial_number').update({ is_issued: true }).eq('serial_number', body.serialNumber);
+
 
     res.status(201).json({ success: true, data: { ...data, serial_number: body.serialNumber } });
   } catch (e) {
@@ -288,11 +330,13 @@ app.post('/api/monitoring/submit', async (req, res) => {
   }
 });
 
+
 // 3. GET DETAILS
 app.get('/api/submissions/details/:serialNumber', async (req, res) => {
   try {
     const { serialNumber } = req.params;
     let { data: sData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
+
 
     if (!sData && serialNumber.length === 9) {
       const parentSerial = serialNumber.slice(0, 8);
@@ -304,16 +348,21 @@ app.get('/api/submissions/details/:serialNumber', async (req, res) => {
       if (parentData) sData = parentData;
     }
 
+
     if (!sData) return res.status(404).json({ success: false, message: 'Serial not found' });
+
 
     const { data: sub } = await supabase.from('az_submissions').select(`*, policy (policy_type), profiles (first_name, last_name)`).eq('serial_id', sData.serial_id).limit(1).maybeSingle();
 
+
     if (!sub) return res.status(404).json({ success: false, message: 'Submission not found' });
+
 
     const nameParts = (sub.client_name || '').split(' ');
     res.json({ success: true, data: { clientFirstName: nameParts[0], clientLastName: nameParts.slice(1).join(' '), clientEmail: sub.client_email, policyType: sub.policy?.policy_type, modeOfPayment: sub.mode_of_payment, policyDate: sub.issued_at } });
   } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
+
 
 // 4. PREVIEW APPLICATION
 app.post('/api/preview-application', async (req, res) => {
@@ -324,6 +373,7 @@ app.post('/api/preview-application', async (req, res) => {
     res.send(pdfBuffer);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
 
 // 5. DOCUMENT SUBMISSION
 app.get('/api/form-submissions', async (req, res) => {
@@ -340,6 +390,7 @@ app.get('/api/form-submissions', async (req, res) => {
   }
 });
 
+
 app.post('/api/form-submissions', upload.any(), async (req, res) => {
   try {
     const { serialNumber, formData } = req.body;
@@ -347,7 +398,9 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
     let serialIdToUse = null;
     let isMigration = false;
 
+
     let { data: serialData } = await supabase.from('serial_number').select('serial_id').eq('serial_number', serialNumber).limit(1).maybeSingle();
+
 
     if (!serialData && serialNumber.length === 9) {
       const parentSerial = serialNumber.slice(0, 8);
@@ -362,18 +415,23 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
       }
     }
 
+
     if (!serialData) return res.status(404).json({ message: 'Serial not found' });
     serialIdToUse = serialData.serial_id;
 
+
     const { data: existing } = await supabase.from('az_submissions').select('*').eq('serial_id', serialIdToUse).limit(1).maybeSingle();
     if (!existing) return res.status(404).json({ message: 'Submission not found' });
+
 
     if (isMigration) {
       await supabase.from('serial_number').update({ serial_number: serialNumber }).eq('serial_id', serialIdToUse);
     }
 
+
     const newFilesForDB = [];
     const emailAttachments = [];
+
 
     if (req.files) {
       for (const f of req.files) {
@@ -385,18 +443,22 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
       }
     }
 
+
     const pdfBuffer = await generateApplicationPDF(parsedData, serialNumber);
     const pdfFilename = `Application_${serialNumber}.pdf`;
     const pdfUpload = await uploadBufferToSupabase(pdfBuffer, pdfFilename, existing.sub_id);
     newFilesForDB.push(pdfUpload);
     emailAttachments.push({ filename: pdfFilename, content: pdfBuffer });
 
+
     const { data: updated, error } = await supabase.from('az_submissions').update({
       form_type: parsedData.formType, mode_of_payment: parsedData.modeOfPayment,
       attachments: [...(existing.attachments || []), ...newFilesForDB]
     }).eq('sub_id', existing.sub_id).select().single();
 
+
     if (error) throw error;
+
 
     try {
       await transporter.sendMail({
@@ -409,11 +471,14 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
       console.log("Email Sent!");
     } catch (err) { console.error("Email failed:", err); }
 
+
     res.json({ success: true, data: updated, generatedPdfUrl: pdfUpload.fileUrl });
   } catch (e) { console.error(e); res.status(500).json({ success: false, message: e.message }); }
 });
 
+
 // --- UPDATED MONITORING ENDPOINTS ---
+
 
 app.get('/api/monitoring/all', async (req, res) => {
   let query = supabase
@@ -421,11 +486,14 @@ app.get('/api/monitoring/all', async (req, res) => {
     .select(`*, policy (policy_type), serial_number (serial_number), profiles (first_name, last_name), agency (name)`)
     .order('issued_at', { ascending: false });
 
+
   if (req.query.profileId) {
     query = query.eq('profile_id', req.query.profileId);
   }
 
+
   const { data } = await query;
+
 
   const flattened = (data || []).map(i => ({
     ...i,
@@ -437,43 +505,59 @@ app.get('/api/monitoring/all', async (req, res) => {
     created_at: i.issued_at
   }));
 
+
   res.json({ success: true, data: flattened });
 });
 
+
 app.get('/api/customers', async (req, res) => {
-  let query = supabase.from('az_submissions')
-    .select(`*, policy (policy_type), serial_number (serial_number), agency(name), payment_history(*)`);
-
-  if (req.query.profileId) {
-    query = query.eq('profile_id', req.query.profileId);
-  }
-
-  const { data } = await query;
-
-  const map = {};
-  (data || []).forEach(s => {
-    if (s.client_email) {
-      if (!map[s.client_email]) {
-        map[s.client_email] = {
-          id: s.sub_id,
-          first_name: s.client_name.split(' ')[0],
-          last_name: s.client_name.split(' ').slice(1).join(' '),
-          email: s.client_email,
-          submissions: []
-        };
-      }
-      const flatSubmission = {
-        ...s,
-        policy_type: s.policy?.policy_type,
-        serial_number: s.serial_number?.serial_number,
-        agency: s.agency?.name,
-        payment_history: s.payment_history || []
-      };
-      map[s.client_email].submissions.push(flatSubmission);
+  try {
+    // [SECURITY FIX] If no profileId is provided, do NOT return all data.
+    // Return empty array to prevent data leakage/flashing other agents' clients.
+    if (!req.query.profileId) {
+      return res.json({ success: true, data: [] });
     }
-  });
-  res.json({ success: true, data: Object.values(map) });
+
+
+    let query = supabase.from('az_submissions')
+      .select(`*, policy (policy_type), serial_number (serial_number), agency(name), payment_history(*)`);
+
+
+    // The filter is applied here
+    query = query.eq('profile_id', req.query.profileId);
+
+
+    const { data } = await query;
+
+
+    const map = {};
+    (data || []).forEach(s => {
+      if (s.client_email) {
+        if (!map[s.client_email]) {
+          map[s.client_email] = {
+            id: s.sub_id,
+            first_name: s.client_name.split(' ')[0],
+            last_name: s.client_name.split(' ').slice(1).join(' '),
+            email: s.client_email,
+            submissions: []
+          };
+        }
+        const flatSubmission = {
+          ...s,
+          policy_type: s.policy?.policy_type,
+          serial_number: s.serial_number?.serial_number,
+          agency: s.agency?.name,
+          payment_history: s.payment_history || []
+        };
+        map[s.client_email].submissions.push(flatSubmission);
+      }
+    });
+    res.json({ success: true, data: Object.values(map) });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
+
 
 app.patch('/api/form-submissions/:id/status', async (req, res) => {
   const { id } = req.params; const { status } = req.body;
@@ -485,17 +569,21 @@ app.patch('/api/form-submissions/:id/status', async (req, res) => {
   res.json({ success: true });
 });
 
+
 app.post('/api/submissions/:id/pay', async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) return res.status(400).json({ success: false, message: 'Invalid submission ID' });
 
+
     const { data: policy, error: fetchError } = await supabase.from('az_submissions').select('*').eq('sub_id', id).limit(1).maybeSingle();
     if (fetchError || !policy) return res.status(404).json({ success: false, message: 'Policy not found' });
+
 
     let totalPremium = typeof policy.premium_paid === 'string'
         ? parseFloat(policy.premium_paid.replace(/,/g, ''))
         : parseFloat(policy.premium_paid);
+
 
     let installmentAmount = totalPremium;
     switch (policy.mode_of_payment) {
@@ -506,6 +594,7 @@ app.post('/api/submissions/:id/pay', async (req, res) => {
     }
     installmentAmount = Math.round(installmentAmount * 100) / 100;
 
+
     const historyPayload = {
       sub_id: id,
       amount: installmentAmount || 0,
@@ -513,18 +602,23 @@ app.post('/api/submissions/:id/pay', async (req, res) => {
       payment_date: new Date().toISOString()
     };
 
+
     const { error: histError } = await supabase.from('payment_history').insert([historyPayload]);
     if (histError) throw histError;
 
+
     const newDueDate = calculateNextPaymentDate(policy.next_payment_date, policy.mode_of_payment);
     const updatePayload = { next_payment_date: newDueDate, is_paid: false };
+
 
     if (policy.status === 'Issued' && !policy.date_issued) {
       updatePayload.date_issued = new Date().toISOString();
     }
 
+
     const { error: updateError } = await supabase.from('az_submissions').update(updatePayload).eq('sub_id', id);
     if (updateError) throw updateError;
+
 
     res.json({ success: true, message: 'Payment recorded successfully', nextDate: newDueDate });
   } catch (e) {
@@ -533,11 +627,13 @@ app.post('/api/submissions/:id/pay', async (req, res) => {
   }
 });
 
+
 // --- UPDATED PERFORMANCE ENDPOINT (ACTIVE = 1 HOUR) ---
 app.get('/api/performance/all', async (req, res) => {
   try {
     const { profileId } = req.query;
     let subordinateIds = [];
+
 
     // 1. If explicit profileId (AL/Leader), fetch their team
     if (profileId) {
@@ -547,7 +643,9 @@ app.get('/api/performance/all', async (req, res) => {
         .eq('report_to_id', profileId)
         .eq('is_active', true);
 
+
       if (teamError) throw teamError;
+
 
       if (team && team.length > 0) {
         subordinateIds = team.map(t => t.user_id);
@@ -565,11 +663,13 @@ app.get('/api/performance/all', async (req, res) => {
       }
     }
 
+
     // 2. Query Submissions - Include last_submission_at in join
     let query = supabase
       .from('az_submissions')
       .select('*, profiles (first_name, last_name, last_submission_at)')
       .order('issued_at', { ascending: false });
+
 
     if (subordinateIds.length > 0) {
       query = query.in('profile_id', subordinateIds);
@@ -577,8 +677,10 @@ app.get('/api/performance/all', async (req, res) => {
       query = query.eq('profile_id', profileId);
     }
 
+
     const { data: submissions, error } = await query;
     if (error) throw error;
+
 
     const performanceByAP = {};
     const teamStats = {
@@ -586,19 +688,24 @@ app.get('/api/performance/all', async (req, res) => {
       totalIssued: 0, totalPending: 0, totalDeclined: 0, averageConversionRate: 0
     };
 
+
     let totalConversionRates = 0;
     let apCountForConversion = 0;
+
 
     // --- 1 HOUR WINDOW (3600000 milliseconds) ---
     const ONE_HOUR_MS = 60 * 60 * 1000;
     const now = new Date();
 
+
     submissions.forEach(sub => {
       let apName = 'Unknown Agent';
       let isActive = false;
 
+
       if (sub.profiles) {
         apName = `${sub.profiles.first_name} ${sub.profiles.last_name}`.trim();
+
 
         // Check if Last Submission was within 1 hour
         if (sub.profiles.last_submission_at) {
@@ -611,6 +718,7 @@ app.get('/api/performance/all', async (req, res) => {
       } else if (sub.submission_type) {
         apName = sub.submission_type;
       }
+
 
       if (!performanceByAP[apName]) {
         performanceByAP[apName] = {
@@ -630,23 +738,28 @@ app.get('/api/performance/all', async (req, res) => {
         if (isActive) performanceByAP[apName].status = 'Active';
       }
 
+
       const totalPremium = parseFloat(sub.premium_paid) || 0;
       let modalPremium = totalPremium;
       const mode = (sub.mode_of_payment || '').trim();
+
 
       if (mode === 'Monthly') modalPremium = totalPremium / 12;
       else if (mode === 'Quarterly') modalPremium = totalPremium / 4;
       else if (mode === 'Semi-Annual') modalPremium = totalPremium / 2;
 
+
       performanceByAP[apName].totalSubmissions++;
       performanceByAP[apName].submissions.push(sub);
       teamStats.totalSubmissions++;
+
 
       if (sub.status === 'Issued') {
         performanceByAP[apName].totalANP += totalPremium;
         performanceByAP[apName].issued++;
         teamStats.totalTeamANP += totalPremium;
         teamStats.totalIssued++;
+
 
         const subDate = new Date(sub.issued_at);
         if (subDate.getMonth() === now.getMonth() && subDate.getFullYear() === now.getFullYear()) {
@@ -662,6 +775,7 @@ app.get('/api/performance/all', async (req, res) => {
       }
     });
 
+
     const performanceList = Object.values(performanceByAP);
     performanceList.forEach(ap => {
       if (ap.totalSubmissions > 0) {
@@ -671,9 +785,11 @@ app.get('/api/performance/all', async (req, res) => {
       }
     });
 
+
     if (apCountForConversion > 0) {
       teamStats.averageConversionRate = (totalConversionRates / apCountForConversion).toFixed(1);
     }
+
 
     res.json({ success: true, data: { performanceByAP: performanceList, teamStats } });
   } catch (e) {
@@ -682,4 +798,6 @@ app.get('/api/performance/all', async (req, res) => {
   }
 });
 
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
