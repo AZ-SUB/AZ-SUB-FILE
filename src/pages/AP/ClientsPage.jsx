@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useApp } from '../../context/AppContext';
 import api from '../../services/api';
 
+
 const ClientsPage = () => {
     // Alias customers to clients for consistency
     const { customers: clients, loadCustomers: loadClients } = useApp();
@@ -10,8 +11,10 @@ const ClientsPage = () => {
     const [groupedPolicies, setGroupedPolicies] = useState({});
     const [isLoading, setIsLoading] = useState(false);
 
+
     // Toggle to see "Pending" items
     const [showAll, setShowAll] = useState(false);
+
 
     // --- NEW: State for Detailed View Modal ---
     const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -19,16 +22,20 @@ const ClientsPage = () => {
     const [selectedYear, setSelectedYear] = useState('All');
     const [availableYears, setAvailableYears] = useState([]);
 
+
     // --- NEW: State for Payment Confirmation Modal ---
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [policyToConfirm, setPolicyToConfirm] = useState(null);
 
+
     // Track processing actions
     const [processingIds, setProcessingIds] = useState(new Set());
+
 
     useEffect(() => {
         handleRefresh();
     }, []);
+
 
     const handleRefresh = async () => {
         setIsLoading(true);
@@ -36,15 +43,18 @@ const ClientsPage = () => {
         setIsLoading(false);
     };
 
+
     // --- GROUPING LOGIC ---
     useEffect(() => {
         if (clients && clients.length > 0) {
             const policies = [];
 
+
             clients.forEach(c => {
                 if (c.submissions && c.submissions.length > 0) {
                     c.submissions.forEach(s => {
                         const status = s.status ? s.status.toLowerCase() : '';
+
 
                         // Show if 'issued' OR if 'showAll' is checked
                         if (status === 'issued' || showAll) {
@@ -60,9 +70,11 @@ const ClientsPage = () => {
                 }
             });
 
+
             // Deduplicate policies based on ID
             const uniquePolicies = [];
             const seenIds = new Set();
+
 
             policies.forEach(p => {
                 if (p.id && !seenIds.has(p.id)) {
@@ -74,10 +86,12 @@ const ClientsPage = () => {
                 }
             });
 
+
             const filtered = uniquePolicies.filter(p =>
                 p.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (p.clientEmail && p.clientEmail.toLowerCase().includes(searchQuery.toLowerCase()))
             );
+
 
             // Sort Years Descending
             const years = [...new Set(filtered.map(p => {
@@ -87,10 +101,12 @@ const ClientsPage = () => {
             }))].sort().reverse();
             setAvailableYears(years);
 
+
             // Set default year to current year if available, unless "All" is selected
             if (years.length > 0 && selectedYear === 'All' && !years.includes('All')) {
                 // Logic to default to current year could go here, but 'All' is fine
             }
+
 
             const groups = {};
             filtered.forEach(p => {
@@ -101,8 +117,10 @@ const ClientsPage = () => {
                     if (!isNaN(d.getTime())) year = d.getFullYear().toString();
                 }
 
+
                 // Apply Year Filter
                 if (selectedYear !== 'All' && year !== selectedYear) return;
+
 
                 // Group missing dates under "Unscheduled / New"
                 if (!p.next_payment_date) {
@@ -112,6 +130,7 @@ const ClientsPage = () => {
                     return;
                 }
 
+
                 const d = new Date(p.next_payment_date);
                 if (isNaN(d.getTime())) {
                     const key = 'Invalid Date Error';
@@ -120,24 +139,29 @@ const ClientsPage = () => {
                     return;
                 }
 
+
                 // Key format: "Year-MonthIdx|Month Name Year" for easy sorting
                 // e.g., "2026-00|January 2026"
                 const monthIdx = d.getMonth().toString().padStart(2, '0');
                 const fullYear = d.getFullYear();
                 const monthName = d.toLocaleString('default', { month: 'long' });
 
+
                 // We use a comparable key for sorting, but we'll display just the readable part
                 const key = `${fullYear}-${monthIdx}|${monthName} ${fullYear}`;
+
 
                 if (!groups[key]) groups[key] = [];
                 groups[key].push(p);
             });
+
 
             setGroupedPolicies(groups);
         } else {
             setGroupedPolicies({});
         }
     }, [clients, searchQuery, showAll, selectedYear]);
+
 
     const isDateOverdue = (dateString) => {
         if (!dateString) return false;
@@ -147,6 +171,7 @@ const ClientsPage = () => {
         return checkDate < today;
     };
 
+
     const markPaid = async (id, e) => {
         e.stopPropagation();
         // Show confirmation modal instead of browser confirm
@@ -154,17 +179,22 @@ const ClientsPage = () => {
         setShowConfirmModal(true);
     };
 
+
     const confirmPayment = async () => {
         if (!policyToConfirm) return;
+
 
         setProcessingIds(prev => new Set(prev).add(policyToConfirm));
         // Don't close modal yet, let the button show "Processing..."
 
+
         try {
             const res = await api.markPolicyPaid(policyToConfirm);
 
+
             // Only close modal on success or after attempt
             setShowConfirmModal(false);
+
 
             if (res.success) {
                 alert(`Payment Recorded! New Due Date: ${res.nextDate}`);
@@ -187,10 +217,12 @@ const ClientsPage = () => {
         }
     };
 
+
     const cancelPayment = () => {
         setShowConfirmModal(false);
         setPolicyToConfirm(null);
     };
+
 
     // --- UPDATED: Open Modal with Full Policy Object ---
     const handleViewDetails = (policy, e) => {
@@ -198,6 +230,55 @@ const ClientsPage = () => {
         setSelectedPolicy(policy);
         setShowDetailsModal(true);
     };
+
+
+    // --- Helper: Render Skeleton Loading State ---
+    const renderSkeleton = () => {
+        // Create 2 mock months with 3 rows each
+        return [1, 2].map((groupNum) => (
+            <div key={groupNum} className="month-container" style={{ border: '1px solid #eee' }}>
+                <div className="month-header" style={{ background: '#f8f9fa', borderBottom: '1px solid #eee' }}>
+                    <div className="skeleton-box" style={{ width: '150px', height: '20px', backgroundColor: '#d1d9e6' }}></div>
+                    <div className="month-stats">
+                        <div className="skeleton-box" style={{ width: '80px', height: '20px', borderRadius: '12px' }}></div>
+                        <div className="skeleton-box" style={{ width: '80px', height: '20px', borderRadius: '12px', marginLeft: '10px' }}></div>
+                    </div>
+                </div>
+                <div className="client-list">
+                    <table className="monthly-table">
+                        <thead>
+                            <tr>
+                                <th style={{width: '25%'}}>Client Name</th>
+                                <th style={{width: '15%'}}>Policy Type</th>
+                                <th style={{width: '15%'}}>Due Date</th>
+                                <th style={{width: '15%'}}>Premium</th>
+                                <th style={{width: '10%'}}>Status</th>
+                                <th style={{width: '10%'}}>View</th>
+                                <th style={{width: '10%'}}>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {[1, 2, 3].map((rowNum) => (
+                                <tr key={rowNum}>
+                                    <td>
+                                        <div className="skeleton-box" style={{ width: '60%', marginBottom: '6px' }}></div>
+                                        <div className="skeleton-box" style={{ width: '40%', height: '10px' }}></div>
+                                    </td>
+                                    <td><div className="skeleton-box" style={{ width: '70%' }}></div></td>
+                                    <td><div className="skeleton-box" style={{ width: '50%' }}></div></td>
+                                    <td><div className="skeleton-box" style={{ width: '60%' }}></div></td>
+                                    <td><div className="skeleton-badge"></div></td>
+                                    <td><div className="skeleton-btn" style={{ width: '40px', height: '24px' }}></div></td>
+                                    <td><div className="skeleton-btn" style={{ width: '70px', height: '24px' }}></div></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        ));
+    };
+
 
     return (
         <div className="card">
@@ -214,6 +295,7 @@ const ClientsPage = () => {
                             Show All (Inc. Pending)
                         </label>
 
+
                         <button
                             onClick={handleRefresh}
                             disabled={isLoading}
@@ -229,6 +311,7 @@ const ClientsPage = () => {
                         >
                             {isLoading ? 'Refreshing...' : ' Refresh Data'}
                         </button>
+
 
                         <select
                             value={selectedYear}
@@ -262,9 +345,12 @@ const ClientsPage = () => {
                     <button className="search-btn">Search</button>
                 </div>
 
-                {Object.keys(groupedPolicies).length === 0 ? (
+
+                {isLoading ? (
+                    renderSkeleton()
+                ) : Object.keys(groupedPolicies).length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                        {isLoading ? 'Loading...' : 'No policies found.'}
+                        No policies found.
                     </div>
                 ) : (
                     Object.entries(groupedPolicies)
@@ -273,8 +359,10 @@ const ClientsPage = () => {
                             // Extract readable title from key "2026-00|January 2026"
                             const monthStr = sortKey.includes('|') ? sortKey.split('|')[1] : sortKey;
 
+
                             const overdueCount = items.filter(i => isDateOverdue(i.next_payment_date)).length;
                             const pendingCount = items.length - overdueCount;
+
 
                             return (
                                 <div key={monthStr} className="month-container">
@@ -306,9 +394,11 @@ const ClientsPage = () => {
                                                     const isOver = isDateOverdue(p.next_payment_date);
                                                     const isProcessing = processingIds.has(p.id);
 
+
                                                     const displayDate = p.next_payment_date
                                                         ? new Date(p.next_payment_date).toLocaleDateString()
                                                         : 'N/A';
+
 
                                                     return (
                                                         <tr key={p.id || p._tempId || idx}>
@@ -323,11 +413,12 @@ const ClientsPage = () => {
                                                                 {p.status !== 'Issued' ? (
                                                                     <span className="status-badge status-pending" style={{ fontSize: '10px' }}>{p.status}</span>
                                                                 ) : isOver ? (
-                                                                    <span className="status-overdue">⚠ OVERDUE</span>
+                                                                    <span className="status-overdue">笞 OVERDUE</span>
                                                                 ) : (
                                                                     <span className="status-due">Upcoming</span>
                                                                 )}
                                                             </td>
+
 
                                                             {/* View Details Button */}
                                                             <td>
@@ -346,6 +437,7 @@ const ClientsPage = () => {
                                                                     View
                                                                 </button>
                                                             </td>
+
 
                                                             <td>
                                                                 <button
@@ -371,6 +463,7 @@ const ClientsPage = () => {
                         })
                 )}
             </div>
+
 
             {/* --- NEW: DETAILED VIEW MODAL --- */}
             {showDetailsModal && selectedPolicy && ReactDOM.createPortal(
@@ -404,6 +497,7 @@ const ClientsPage = () => {
                         </div>
                         <div className="modal-body">
 
+
                             {/* 1. KEY INFO GRID */}
                             <div style={{
                                 display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px',
@@ -418,6 +512,7 @@ const ClientsPage = () => {
                                     <small style={{ color: '#888' }}>{selectedPolicy.clientEmail}</small>
                                 </div>
 
+
                                 <div>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Serial Number</small>
                                     <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#003781' }}>{selectedPolicy.serial_number || 'N/A'}</div>
@@ -431,6 +526,7 @@ const ClientsPage = () => {
                                     </div>
                                 </div>
 
+
                                 <div>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Policy Type</small>
                                     <div style={{ fontWeight: 500 }}>{selectedPolicy.policy_type}</div>
@@ -439,6 +535,7 @@ const ClientsPage = () => {
                                     <small style={{ color: '#666', fontWeight: 600 }}>Premium</small>
                                     <div style={{ fontWeight: 500 }}>PHP {parseFloat(selectedPolicy.premium_paid).toLocaleString()}</div>
                                 </div>
+
 
                                 <div>
                                     <small style={{ color: '#666', fontWeight: 600 }}>Mode of Payment</small>
@@ -449,6 +546,7 @@ const ClientsPage = () => {
                                     <div>{selectedPolicy.agency || '-'}</div>
                                 </div>
                             </div>
+
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '20px' }}>
                                 <div style={{ padding: '10px', background: '#e3f2fd', borderRadius: '6px' }}>
@@ -473,9 +571,10 @@ const ClientsPage = () => {
                                 </div>
                             </div>
 
+
                             {/* 2. ATTACHMENTS LIST */}
                             <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                                📎 Attached Files
+                                梼 Attached Files
                             </h3>
                             <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                                 {selectedPolicy.attachments && selectedPolicy.attachments.length > 0 ? (
@@ -488,7 +587,7 @@ const ClientsPage = () => {
                                                     rel="noopener noreferrer"
                                                     style={{ textDecoration: 'none', color: '#007bff', fontWeight: 500, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
                                                 >
-                                                    📄 {file.fileName || 'Document'}
+                                                    塘 {file.fileName || 'Document'}
                                                 </a>
                                                 <span style={{ fontSize: '11px', color: '#999' }}>
                                                     {(file.fileSize / 1024).toFixed(0)} KB
@@ -501,9 +600,10 @@ const ClientsPage = () => {
                                 )}
                             </div>
 
+
                             {/* 3. PAYMENT HISTORY (ADDED) */}
                             <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                                💳 Payment History
+                                諜 Payment History
                             </h3>
                             <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -545,6 +645,7 @@ const ClientsPage = () => {
                                 </table>
                             </div>
 
+
                             <div style={{ textAlign: 'right', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
                                 {/* Added Mark Paid Button to Details Modal */}
                                 {selectedPolicy.status !== 'Issued' && (
@@ -580,6 +681,7 @@ const ClientsPage = () => {
                 </div>,
                 document.body
             )}
+
 
             {/* --- NEW: PAYMENT CONFIRMATION MODAL --- */}
             {showConfirmModal && ReactDOM.createPortal(
@@ -664,4 +766,6 @@ const ClientsPage = () => {
     );
 };
 
+
 export default ClientsPage;
+
