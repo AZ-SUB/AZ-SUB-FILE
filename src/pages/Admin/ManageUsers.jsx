@@ -13,13 +13,13 @@ const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [user, setUser] = useState(null); // Admin session user
   // --- ADD THESE BLOCKS ---
-const [statusFilter, setStatusFilter] = useState("Active"); // Default to Active
+  const [statusFilter, setStatusFilter] = useState("Active"); // Default to Active
 
-// Derived state to filter the list based on the "Status" column
-const filteredUsers = users.filter((u) => {
-  const currentStatus = u.Status || "Active"; // Treat null as Active
-  return currentStatus === statusFilter;
-});
+  // Derived state to filter the list based on the "Status" column
+  const filteredUsers = users.filter((u) => {
+    const currentStatus = u.Status || "Active"; // Treat null as Active
+    return currentStatus === statusFilter;
+  });
   // UI States
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -37,7 +37,8 @@ const filteredUsers = users.filter((u) => {
     email: "",
     password: "",
     position: "MP",
-    reportsTo: ""
+    reportsTo: "",
+    appPassword: ""
   });
 
   // Hierarchy/View Data
@@ -131,6 +132,7 @@ const filteredUsers = users.filter((u) => {
             first_name: formData.firstName,
             last_name: formData.lastName,
             account_type: formData.position,
+            app_password: formData.appPassword
           })
           .eq("id", editingUserId);
         if (error) throw error;
@@ -140,20 +142,25 @@ const filteredUsers = users.filter((u) => {
           email: formData.email,
           password: formData.password,
           options: {
-            data: { first_name: formData.firstName, last_name: formData.lastName, account_type: formData.position },
+            data: {
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              account_type: formData.position
+            },
           },
         });
         if (authError) throw authError;
 
         userIdToProcess = authData.user.id;
-const { error: profileError } = await supabase.from("profiles").insert({
-  id: userIdToProcess,
-  first_name: formData.firstName,
-  last_name: formData.lastName,
-  email: formData.email,
-  account_type: formData.position,
-  Status: "Active", // Explicitly set this here
-});
+        const { error: profileError } = await supabase.from("profiles").insert({
+          id: userIdToProcess,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          account_type: formData.position,
+          Status: "Active", // Explicitly set this here
+          app_password: formData.appPassword
+        });
         if (profileError) throw profileError;
         setSuccessMsg("User created successfully!");
       }
@@ -184,7 +191,7 @@ const { error: profileError } = await supabase.from("profiles").insert({
   const openViewModal = async (u) => {
     setViewingUser(u);
     setShowViewModal(true);
-    
+
     // Reset and fetch hierarchy info
     const [supRes, subRes] = await Promise.all([
       supabase.from("user_hierarchy").select("profiles:report_to_id(first_name, last_name, account_type)").eq("user_id", u.id).eq("is_active", true).maybeSingle(),
@@ -204,13 +211,14 @@ const { error: profileError } = await supabase.from("profiles").insert({
       email: u.email,
       password: "",
       position: u.account_type,
-      reportsTo: ""
+      reportsTo: "",
+      appPassword: u.app_password || ""
     });
 
     // Fetch current supervisor
     const { data } = await supabase.from("user_hierarchy").select("report_to_id").eq("user_id", u.id).eq("is_active", true).maybeSingle();
     if (data) setFormData(prev => ({ ...prev, reportsTo: data.report_to_id }));
-    
+
     setShowModal(true);
   };
 
@@ -219,34 +227,34 @@ const { error: profileError } = await supabase.from("profiles").insert({
     setShowViewModal(false);
     setIsEditMode(false);
     setEditingUserId(null);
-    setFormData({ firstName: "", lastName: "", email: "", password: "", position: "MP", reportsTo: "" });
+    setFormData({ firstName: "", lastName: "", email: "", password: "", position: "MP", reportsTo: "", appPassword: "" });
     setModalError("");
     setSuccessMsg("");
     setViewingSupervisor(null);
     setViewingSubordinates([]);
   };
-const toggleUserStatus = async (userItem) => {
-  const currentStatus = userItem.Status || "Active";
-  const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-  
-  // Dynamic message based on target status
-  const actionText = newStatus === "Inactive" ? "deactivate" : "reactivate";
-  const confirmMessage = `Are you sure you want to ${actionText} ${userItem.first_name} ${userItem.last_name}?`;
+  const toggleUserStatus = async (userItem) => {
+    const currentStatus = userItem.Status || "Active";
+    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
 
-  // Standard browser confirmation (OK = Confirm, Cancel = Back)
-  if (window.confirm(confirmMessage)) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ Status: newStatus })
-      .eq("id", userItem.id);
+    // Dynamic message based on target status
+    const actionText = newStatus === "Inactive" ? "deactivate" : "reactivate";
+    const confirmMessage = `Are you sure you want to ${actionText} ${userItem.first_name} ${userItem.last_name}?`;
 
-    if (error) {
-      alert("Error: " + error.message);
-    } else {
-      fetchUsers(); // Refresh the table
+    // Standard browser confirmation (OK = Confirm, Cancel = Back)
+    if (window.confirm(confirmMessage)) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ Status: newStatus })
+        .eq("id", userItem.id);
+
+      if (error) {
+        alert("Error: " + error.message);
+      } else {
+        fetchUsers(); // Refresh the table
+      }
     }
-  }
-};
+  };
 
   return (
     <div className="admin-container">
@@ -300,21 +308,21 @@ const toggleUserStatus = async (userItem) => {
 
       {/* Main */}
       <main className={`admin-main-content ${sidebarOpen ? '' : 'expanded'}`}>
-<div className="header-row">
-  <h1>Manage Users</h1>
-  <div className="header-actions">
-    {/* Toggle Filter Button */}
-    <button 
-      className="add-btn" 
-      onClick={() => setStatusFilter(statusFilter === "Active" ? "Inactive" : "Active")}
-    >
-      <i className={`fa-solid ${statusFilter === "Active" ? "fa-user-slash" : "fa-user-check"}`}></i>
-      {statusFilter === "Active" ? " View Inactive Users" : " View Active Users"}
-    </button>
+        <div className="header-row">
+          <h1>Manage Users</h1>
+          <div className="header-actions">
+            {/* Toggle Filter Button */}
+            <button
+              className="add-btn"
+              onClick={() => setStatusFilter(statusFilter === "Active" ? "Inactive" : "Active")}
+            >
+              <i className={`fa-solid ${statusFilter === "Active" ? "fa-user-slash" : "fa-user-check"}`}></i>
+              {statusFilter === "Active" ? " View Inactive Users" : " View Active Users"}
+            </button>
 
-    <button className="add-btn" onClick={() => setShowModal(true)}>+ Add User</button>
-  </div>
-</div>
+            <button className="add-btn" onClick={() => setShowModal(true)}>+ Add User</button>
+          </div>
+        </div>
 
         <div className="admin-table-card">
           <table className="admin-user-table">
@@ -328,43 +336,43 @@ const toggleUserStatus = async (userItem) => {
                 <th>Action</th>
               </tr>
             </thead>
-<tbody>
-  {filteredUsers.length === 0 ? (
-    <tr>
-      <td colSpan="6" style={{ textAlign: "center", padding: "30px", color: "#888" }}>
-        No {statusFilter.toLowerCase()} users found.
-      </td>
-    </tr>
-  ) : (
-    filteredUsers.map((u, index) => {
-      const isInactive = u.Status === "Inactive";
-      
-      return (
-        <tr key={u.id}>
-          <td>{index + 1}</td>
-          <td>{u.last_name}</td>
-          <td>{u.first_name}</td>
-          <td>{u.account_type}</td>
-          <td>
-            <span className={`status-badge ${isInactive ? "inactive" : "active"}`}>
-              {isInactive ? "Inactive" : "Active"}
-            </span>
-          </td>
-          <td className="action-cell">
-            <button className="btn-view" onClick={() => openViewModal(u)}>View</button>
-            <button className="btn-update" onClick={() => openEditModal(u)}>Update</button>
-            <button 
-              className={isInactive ? "btn-active-toggle" : "btn-delete"} 
-              onClick={() => toggleUserStatus(u)}
-            >
-              {isInactive ? "Activate" : "Deactivate"}
-            </button>
-          </td>
-        </tr>
-      );
-    })
-  )}
-</tbody>
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: "center", padding: "30px", color: "#888" }}>
+                    No {statusFilter.toLowerCase()} users found.
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((u, index) => {
+                  const isInactive = u.Status === "Inactive";
+
+                  return (
+                    <tr key={u.id}>
+                      <td>{index + 1}</td>
+                      <td>{u.last_name}</td>
+                      <td>{u.first_name}</td>
+                      <td>{u.account_type}</td>
+                      <td>
+                        <span className={`status-badge ${isInactive ? "inactive" : "active"}`}>
+                          {isInactive ? "Inactive" : "Active"}
+                        </span>
+                      </td>
+                      <td className="action-cell">
+                        <button className="btn-view" onClick={() => openViewModal(u)}>View</button>
+                        <button className="btn-update" onClick={() => openEditModal(u)}>Update</button>
+                        <button
+                          className={isInactive ? "btn-active-toggle" : "btn-delete"}
+                          onClick={() => toggleUserStatus(u)}
+                        >
+                          {isInactive ? "Activate" : "Deactivate"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
           </table>
         </div>
       </main>
@@ -393,6 +401,20 @@ const toggleUserStatus = async (userItem) => {
                     <input type="email" name="email" required value={formData.email} onChange={handleFormChange} />
                   </div>
                 )}
+
+                <div className="input-group">
+                  <label>Email App Password</label>
+                  <input
+                    type="password"
+                    name="appPassword"
+                    value={formData.appPassword}
+                    onChange={handleFormChange}
+                    placeholder="App Password for SMTP"
+                  />
+                  <small style={{ color: '#888', fontSize: '0.75rem', marginTop: '2px' }}>
+                    Used for sending emails (optional)
+                  </small>
+                </div>
 
                 <div className="password-position-row">
                   {!isEditMode && (
@@ -461,6 +483,16 @@ const toggleUserStatus = async (userItem) => {
               <div className="name-row">
                 <div className="input-group"><label>Email</label><input type="email" value={viewingUser.email || ""} readOnly /></div>
                 <div className="input-group"><label>Position</label><input type="text" value={viewingUser.account_type || ""} readOnly /></div>
+              </div>
+
+              <div className="input-group" style={{ marginBottom: '15px' }}>
+                <label>Email App Password</label>
+                <input
+                  type="password"
+                  value={viewingUser.app_password || ""}
+                  readOnly
+                  placeholder="Not set"
+                />
               </div>
 
               <div className="hierarchy-section">

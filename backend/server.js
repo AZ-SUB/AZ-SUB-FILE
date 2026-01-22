@@ -54,11 +54,21 @@ const ALLIANZ_HO_EMAIL = process.env.ALLIANZ_HO_EMAIL;
 const SUPABASE_BUCKET = 'policy-documents';
 
 
-// Check Email Connection
+// Check Email Connection (Global)
 transporter.verify((error) => {
-  if (error) console.log("Email Connection Error:", error);
-  else console.log("Email Server is Ready");
+  if (error) console.log("Email Connection Error (Global):", error);
+  else console.log("Email Server is Ready (Global)");
 });
+
+// --- HELPER: USER TRANSPORTER ---
+function createUserTransporter(userEmail, appPassword) {
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com', // Assuming Gmail for now, or use process.env.EMAIL_HOST
+    port: 465, // SSL
+    secure: true,
+    auth: { user: userEmail, pass: appPassword }
+  });
+}
 
 
 // --- HELPER FUNCTIONS ---
@@ -461,14 +471,37 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
 
 
     try {
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: ALLIANZ_HO_EMAIL,
+      // --- DYNAMIC EMAIL SENDER ---
+      let mailTransporter = transporter; // Default to global
+      let senderEmail = process.env.EMAIL_USER;
+
+      // Fetch user profile to get app_password
+      if (existing.profile_id) {
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('email, app_password')
+          .eq('id', existing.profile_id)
+          .single();
+
+        if (userProfile && userProfile.app_password) {
+          console.log(`Using App Password for user: ${userProfile.email}`);
+          mailTransporter = createUserTransporter(userProfile.email, userProfile.app_password);
+          senderEmail = userProfile.email;
+        }
+      }
+
+      // Construct Recipient List
+      const recipients = [ALLIANZ_HO_EMAIL, 'veraniaam@students.nu-fairview.edu.ph'];
+      if (existing.client_email) recipients.push(existing.client_email);
+
+      await mailTransporter.sendMail({
+        from: senderEmail,
+        to: recipients,
         subject: `Submission: ${serialNumber} - ${existing.client_name}`,
         text: `New Application Received.\n\nSerial: ${serialNumber}\nClient: ${existing.client_name}\n\nDocuments attached.`,
         attachments: emailAttachments
       });
-      console.log("Email Sent!");
+      console.log(`Email Sent to: ${recipients.join(', ')}`);
     } catch (err) { console.error("Email failed:", err); }
 
 
@@ -581,8 +614,8 @@ app.post('/api/submissions/:id/pay', async (req, res) => {
 
 
     let totalPremium = typeof policy.premium_paid === 'string'
-        ? parseFloat(policy.premium_paid.replace(/,/g, ''))
-        : parseFloat(policy.premium_paid);
+      ? parseFloat(policy.premium_paid.replace(/,/g, ''))
+      : parseFloat(policy.premium_paid);
 
 
     let installmentAmount = totalPremium;
