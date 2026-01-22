@@ -268,42 +268,43 @@ const filteredPolicies = policies.filter(policy => {
             </aside>
 
             {/* HEADER */}
-            <header className={`admin-header ${sidebarOpen ? '' : 'expanded'}`}>
-                <div className="admin-header-content">
-                    <h1>Admin Dashboard</h1>
-                    <div className="admin-header-user">
-                        <button
-                            className="admin-user-profile-btn"
-                            onClick={() => setShowProfileMenu(!showProfileMenu)}
-                        >
-                            <div className="admin-user-avatar">
-                                {user?.user_metadata?.last_name ? (
-                                    <span className="admin-avatar-initials">
-                                        {user.user_metadata.last_name.charAt(0).toUpperCase()}
-                                    </span>
-                                ) : (
-                                    <i className="fa-solid fa-user"></i>
-                                )}
-                            </div>
-                            <span>{user?.user_metadata?.last_name || "User"} - Admin</span>
-                        </button>
-                        {showProfileMenu && (
-                            <div className="admin-profile-dropdown">
-                                <a href="#" className="admin-dropdown-item">
-                                    <i className="fa-solid fa-user"></i> Profile
-                                </a>
-                                <a href="#" className="admin-dropdown-item">
-                                    <i className="fa-solid fa-lock"></i> Change Password
-                                </a>
-                                <hr className="admin-dropdown-divider" />
-                                <a onClick={logout} className="admin-dropdown-item admin-logout-item">
-                                    <i className="fa-solid fa-right-from-bracket"></i> Logout
-                                </a>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </header>
+      <header className={`admin-header ${sidebarOpen ? '' : 'expanded'}`}>
+        <div className="admin-header-content">
+          <h1>Admin Dashboard</h1>
+          <div className="admin-header-user">
+            <button
+              className="admin-user-profile-btn"
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+            >
+              <div className="admin-user-avatar">
+                {user?.user_metadata?.last_name ? (
+                  <span className="admin-avatar-initials">
+                    {user.user_metadata.last_name.charAt(0).toUpperCase()}
+                  </span>
+                ) : (
+                  <i className="fa-solid fa-user"></i>
+                )}
+              </div>
+              <span>{user?.user_metadata?.last_name || "User"} - Admin</span>
+            </button>
+            {showProfileMenu && (
+              <div className="admin-profile-dropdown">
+                <a onClick={() => navigate("/admin/Profile")} className="admin-dropdown-item">
+                  <i className="fa-solid fa-user"></i> Profile
+                </a>
+                <a onClick={() => navigate("/admin/SerialNumber")} className="admin-dropdown-item">
+                  <i className="fa-solid fa-barcode"></i> Serial Numbers
+                </a>
+
+                <hr className="admin-dropdown-divider" />
+                <a onClick={logout} className="admin-dropdown-item admin-logout-item">
+                  <i className="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
 
             {/* MAIN CONTENT */}
             <main className={`admin-main-content ${sidebarOpen ? '' : 'expanded'}`}>

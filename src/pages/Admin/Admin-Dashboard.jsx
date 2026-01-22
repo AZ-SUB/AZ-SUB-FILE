@@ -159,15 +159,13 @@ const AdminDashboard = () => {
             </button>
             {showProfileMenu && (
               <div className="admin-profile-dropdown">
+                <a onClick={() => navigate("/admin/Profile")} className="admin-dropdown-item">
+                  <i className="fa-solid fa-user"></i> Profile
+                </a>
                 <a onClick={() => navigate("/admin/SerialNumber")} className="admin-dropdown-item">
                   <i className="fa-solid fa-barcode"></i> Serial Numbers
                 </a>
-                <a href="#" className="admin-dropdown-item">
-                  <i className="fa-solid fa-user"></i> Profile
-                </a>
-                <a href="#" className="admin-dropdown-item">
-                  <i className="fa-solid fa-lock"></i> Change Password
-                </a>
+
                 <hr className="admin-dropdown-divider" />
                 <a onClick={logout} className="admin-dropdown-item admin-logout-item">
                   <i className="fa-solid fa-right-from-bracket"></i> Logout

@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
 import "./Style/AdminLayout.css";
-import "./Style/ManageUsers.css?v=2";
+import "./Style/ManageUsers.css?v=2.1";
+
 import LogoImage from "../../assets/logo1.png";
 
 const ManageUsers = () => {
@@ -285,8 +286,8 @@ const toggleUserStatus = async (userItem) => {
             </button>
             {showProfileMenu && (
               <div className="admin-profile-dropdown">
+                <button onClick={() => navigate("/admin/Profile")} className="admin-dropdown-item"><i className="fa-solid fa-user"></i> Profile</button>
                 <button onClick={() => navigate("/admin/SerialNumber")} className="admin-dropdown-item"><i className="fa-solid fa-barcode"></i> Serial Numbers</button>
-                <button className="admin-dropdown-item"><i className="fa-solid fa-user"></i> Profile</button>
                 <hr className="admin-dropdown-divider" />
                 <button onClick={async () => { await supabase.auth.signOut(); navigate("/"); }} className="admin-dropdown-item admin-logout-item">
                   <i className="fa-solid fa-right-from-bracket"></i> Logout
@@ -398,7 +399,7 @@ const toggleUserStatus = async (userItem) => {
                     <div className="input-group">
                       <label>Password</label>
                       <div className="password-input-wrapper">
-                        <input type={showPassword ? "text" : "password"} name="password" required value={formData.password} onChange={handleFormChange} />
+                        <input type={showPassword ? "text" : "password"} name="password" required value={formData.password} readOnly onChange={handleFormChange} />
                         <button type="button" className="generate-btn" onClick={generatePassword}>Generate</button>
                       </div>
                     </div>
