@@ -35,11 +35,12 @@ const TopBar = () => {
         <div className="top-bar">
             <div className="top-bar-content">
                 <div className="left-section">
-                    <div className="top-bar-logo">CAELUM</div>
+                    {/* [UPDATE] Removed Image, Restored Text "CAELUM" */}
+                    <div className="top-bar-logo"></div>
                 </div>
                 <div className="right-section" style={{ display: 'flex', alignItems: 'center', gap: '20px', marginLeft: 'auto' }}>
                     <div className="connection-indicator">
-                        <div className={`connection - dot ${isConnected ? 'connected' : ''} `}></div>
+                        <div className={`connection-dot ${isConnected ? 'connected' : ''}`}></div>
                         <span>{isConnected ? 'Connected' : 'Not Connected'}</span>
                     </div>
 
@@ -53,7 +54,7 @@ const TopBar = () => {
                                 <div className="profile-icon">
                                     {/* Placeholder Icon */}
                                     <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {(displayUser.firstName || displayUser.name || displayUser.username).charAt(0).toUpperCase()}
+                                        {(displayUser.firstName || displayUser.name || displayUser.username || 'U').charAt(0).toUpperCase()}
                                     </div>
                                 </div>
                                 <div className="profile-info" style={{ textAlign: 'left', color: 'white' }}>

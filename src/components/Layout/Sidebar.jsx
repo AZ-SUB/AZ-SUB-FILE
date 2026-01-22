@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+// [CHANGE] Import the logo
+import logo1 from '../../assets/logo1.png'; 
 
 const Sidebar = () => {
     const location = useLocation();
@@ -130,7 +132,17 @@ const Sidebar = () => {
         <div className="sidebar">
             <div className="sidebar-header">
                 <Link to="/home" className="sidebar-logo" title="Go to Home">
-                    CAELUM
+                    {/* [CHANGE] Replaced Text with Image */}
+                    <img 
+                        src={logo1} 
+                        alt="Caelum" 
+                        style={{ 
+                            height: '45px', 
+                            display: 'block', 
+                            margin: '0 auto',
+                            objectFit: 'contain'
+                        }} 
+                    />
                 </Link>
             </div>
             <div className="sidebar-menu">
