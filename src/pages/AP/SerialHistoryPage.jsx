@@ -40,7 +40,8 @@ const SerialHistoryPage = () => {
         if (item.form_type) {
             return { text: 'Submitted', color: '#28a745', bg: '#d4edda' };
         }
-        return { text: 'Pending Docs', color: '#856404', bg: '#fff3cd' };
+        // [UPDATE] Changed text from 'Pending Docs' to 'Serial Generated'
+        return { text: 'Serial Generated', color: '#856404', bg: '#fff3cd' };
     };
 
     return (
@@ -167,6 +168,7 @@ const SerialHistoryPage = () => {
                                                         textTransform: 'uppercase',
                                                         letterSpacing: '0.5px'
                                                     }}>
+                                                        {/* [UPDATE] Changed icon logic slightly to match context if needed, but keeping original */}
                                                         {item.form_type ? '✓' : '⏱'} {status.text}
                                                     </span>
                                                 </td>

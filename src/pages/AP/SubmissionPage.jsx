@@ -9,8 +9,9 @@ const SubmissionPage = () => {
         medical: { height: '', weight: '', diagnosed: 'No', hospitalized: 'No', smoker: 'No', alcohol: 'No' }
     });
 
-    // NEW: State for VUL GAE option
+    // Options States
     const [isGAE, setIsGAE] = useState(false);
+    const [isVSP, setIsVSP] = useState(false);
 
     const [specificFiles, setSpecificFiles] = useState({});
 
@@ -28,7 +29,7 @@ const SubmissionPage = () => {
     const REQUIREMENTS = {
         'VUL': [
             { id: 'app_form', label: 'Accomplished Application Form', required: true },
-            { id: 'auth_med', label: 'Authorization to Furnish Medical', required: true, nonGaeOnly: true }, // CHANGED: Added flag
+            { id: 'auth_med', label: 'Authorization to Furnish Medical', required: true, nonGaeOnly: true },
             { id: 'inter_dec', label: 'Intermediary Declarations', required: true },
             { id: 'acr', label: "Agent's Confidential Report (ACR)", required: true },
             { id: 'specimen_sig', label: 'Client Specimen Signature Form OR Valid ID (Signed 3x)', required: true },
@@ -93,8 +94,9 @@ const SubmissionPage = () => {
                     formType: detectedCategory
                 }));
 
-                // Reset GAE to default (False / Non-GAE) when new serial loads
+                // Reset Options
                 setIsGAE(false);
+                setIsVSP(false);
 
                 setMessage(`Serial found! Identified as ${detectedCategory} Application.`);
                 setMessageType('success');
@@ -155,7 +157,10 @@ const SubmissionPage = () => {
             const response = await fetch('http://localhost:3000/api/preview-application', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ formData, serialNumber: formData.serialNumber })
+                body: JSON.stringify({ 
+                    formData: { ...formData, isGAE, isVSP }, 
+                    serialNumber: formData.serialNumber 
+                })
             });
 
             if (!response.ok) throw new Error('Preview failed');
@@ -179,12 +184,19 @@ const SubmissionPage = () => {
     // --- HELPER TO GET ACTIVE REQUIREMENTS ---
     const getActiveRequirements = () => {
         if (!formData.formType) return [];
-        let reqs = REQUIREMENTS[formData.formType] || [];
+        let reqs = [...(REQUIREMENTS[formData.formType] || [])];
 
         // If VUL and GAE is selected, filter out "nonGaeOnly" items (like Medical Auth)
         if (formData.formType === 'VUL' && isGAE) {
             reqs = reqs.filter(r => !r.nonGaeOnly);
         }
+
+        // --- VSP LOGIC ---
+        if (isVSP) {
+            reqs.push({ id: 'proof_meet', label: 'Proof of Meeting (VSP)', required: true });
+            reqs.push({ id: 'proof_attest', label: 'Proof of Attestation (VSP)', required: true });
+        }
+
         return reqs;
     };
 
@@ -211,7 +223,7 @@ const SubmissionPage = () => {
 
             const dataPayload = new FormData();
             dataPayload.append('serialNumber', formData.serialNumber);
-            dataPayload.append('formData', JSON.stringify({ ...formData, isGAE })); // Include GAE status
+            dataPayload.append('formData', JSON.stringify({ ...formData, isGAE, isVSP })); 
 
             Object.entries(specificFiles).forEach(([key, filesArray]) => {
                 filesArray.forEach(file => {
@@ -232,6 +244,7 @@ const SubmissionPage = () => {
                     medical: { height: '', weight: '', diagnosed: 'No', hospitalized: 'No', smoker: 'No', alcohol: 'No' }
                 });
                 setIsGAE(false);
+                setIsVSP(false);
                 setSpecificFiles({});
             } else {
                 setMessage('Submission failed: ' + response.message);
@@ -246,8 +259,7 @@ const SubmissionPage = () => {
         }
     };
 
-    // Helper: Determine if Medical Section should show
-    // Show if Form is NOT VUL, OR if it IS VUL but Non-GAE (isGAE === false)
+    // Only show medical if NOT VUL-GAE
     const showMedicalSection = formData.formType && (formData.formType !== 'VUL' || !isGAE);
 
     return (
@@ -317,7 +329,7 @@ const SubmissionPage = () => {
                         <input value={`${formData.clientFirstName} ${formData.clientLastName}`} readOnly style={{ backgroundColor: '#e9ecef' }} />
                     </div>
 
-                    {/* --- NEW: VUL GAE DROPDOWN --- */}
+                    {/* --- VUL GAE DROPDOWN --- */}
                     {formData.formType === 'VUL' && (
                         <div className="form-group">
                             <label style={{ color: '#856404' }}>VUL Underwriting Option</label>
@@ -331,14 +343,41 @@ const SubmissionPage = () => {
                                     fontWeight: 'bold'
                                 }}
                             >
-                                <option value="Non-GAE">Non-GAE (Standard - Medical Required)</option>
-                                <option value="GAE">GAE (Guaranteed Acceptance Offer)</option>
+                                <option value="Non-GAE">Non-GAE (Standard)</option>
+                                <option value="GAE">GAE (Guaranteed Offer)</option>
                             </select>
+                        </div>
+                    )}
+
+                    {/* --- VSP TOGGLE (Centered Content) --- */}
+                    {formData.formType && (
+                        <div className="form-group" style={{ 
+                            display: 'flex', 
+                            flexDirection: 'row', 
+                            justifyContent: 'center', // CENTERS CONTENT HORIZONTALLY
+                            alignItems: 'center',     // CENTERS CONTENT VERTICALLY
+                            gap: '10px',
+                            marginTop: 'auto', 
+                            padding: '10px', 
+                            backgroundColor: '#e3f2fd', 
+                            borderRadius: '4px', 
+                            border: '1px solid #b3d7ff'
+                        }}>
+                            <input 
+                                type="checkbox" 
+                                id="vsp-toggle"
+                                checked={isVSP}
+                                onChange={(e) => setIsVSP(e.target.checked)}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer', margin: 0 }}
+                            />
+                            <label htmlFor="vsp-toggle" style={{ marginBottom: 0, cursor: 'pointer', fontWeight: 'bold', color: '#004085' }}>
+                                Virtual Selling Process (VSP)
+                            </label>
                         </div>
                     )}
                 </div>
 
-                {/* --- MEDICAL SECTION: Only show if NOT VUL-GAE --- */}
+                {/* --- MEDICAL SECTION --- */}
                 {showMedicalSection && (
                     <div className="medical-section" style={{ marginTop: '25px', backgroundColor: '#fff', padding: '15px', border: '1px solid #ddd', borderRadius: '8px' }}>
                         <h3 style={{ color: '#c0392b', borderBottom: '2px solid #eee', paddingBottom: '10px', marginTop: 0 }}>
@@ -390,7 +429,9 @@ const SubmissionPage = () => {
                 {formData.formType && (
                     <div className="file-upload-section">
                         <h3>
-                            Requirements for {formData.formType} {isGAE && '(GAE)'}
+                            Requirements for {formData.formType}
+                            {isGAE && ' (GAE)'}
+                            {isVSP && ' (VSP)'}
                             <span style={{ fontSize: '0.6em', color: '#666', marginLeft: '10px', fontWeight: 'normal' }}>
                                 (Based on {formData.policyType})
                             </span>
@@ -410,7 +451,6 @@ const SubmissionPage = () => {
                                                 {req.label}
                                                 {req.required && <span style={{ color: 'red', marginLeft: '4px' }}>*</span>}
                                             </div>
-
                                             <div>
                                                 <input
                                                     type="file"
@@ -433,8 +473,7 @@ const SubmissionPage = () => {
                                                 </label>
                                             </div>
                                         </div>
-
-                                        {/* File List */}
+                                        
                                         {hasFiles && (
                                             <ul style={{ listStyle: 'none', padding: 0, margin: 0, borderTop: '1px solid #eee', paddingTop: '8px' }}>
                                                 {uploadedFiles.map((file, idx) => (
@@ -484,7 +523,7 @@ const SubmissionPage = () => {
                 </div>
             </div>
 
-            {/* --- PDF PREVIEW POPUP MODAL --- */}
+            {/* --- PDF PREVIEW MODAL --- */}
             {showPreview && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
