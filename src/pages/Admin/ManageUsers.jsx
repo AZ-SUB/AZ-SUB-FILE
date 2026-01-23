@@ -13,6 +13,7 @@ const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [user, setUser] = useState(null); // Admin session user
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   // --- ADD THESE BLOCKS ---
   const [statusFilter, setStatusFilter] = useState("Active"); // Default to Active
 
@@ -21,6 +22,16 @@ const ManageUsers = () => {
     const currentStatus = u.Status || "Active"; // Treat null as Active
     return currentStatus === statusFilter;
   });
+=======
+  const [statusFilter, setStatusFilter] = useState("Active"); // Default to Active
+
+  // Derived state to filter the list based on the "Status" column
+  const filteredUsers = users.filter((u) => {
+    const currentStatus = u.Status || "Active"; // Treat null as Active
+    return currentStatus === statusFilter;
+  });
+
+>>>>>>> Stashed changes
 =======
   const [statusFilter, setStatusFilter] = useState("Active"); // Default to Active
 
@@ -170,8 +181,12 @@ const ManageUsers = () => {
           email: formData.email,
           account_type: formData.position,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
           Status: "Active", // Explicitly set this here
           app_password: formData.appPassword
+=======
+          Status: "Active",
+>>>>>>> Stashed changes
 =======
           Status: "Active",
 >>>>>>> Stashed changes
@@ -249,6 +264,7 @@ const ManageUsers = () => {
     setViewingSubordinates([]);
   };
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   const toggleUserStatus = async (userItem) => {
     const currentStatus = userItem.Status || "Active";
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -269,6 +285,22 @@ const ManageUsers = () => {
       } else {
         fetchUsers(); // Refresh the table
       }
+=======
+
+  const toggleUserStatus = async (userItem) => {
+    const currentStatus = userItem.Status || "Active";
+    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
+    const actionText = newStatus === "Inactive" ? "deactivate" : "reactivate";
+    
+    if (window.confirm(`Are you sure you want to ${actionText} ${userItem.first_name} ${userItem.last_name}?`)) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ Status: newStatus })
+        .eq("id", userItem.id);
+
+      if (error) alert("Error: " + error.message);
+      else fetchUsers();
+>>>>>>> Stashed changes
 =======
 
   const toggleUserStatus = async (userItem) => {
@@ -344,6 +376,7 @@ const ManageUsers = () => {
           <h1>Manage Users</h1>
           <div className="header-actions">
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             {/* Toggle Filter Button */}
             <button
               className="add-btn"
@@ -354,10 +387,15 @@ const ManageUsers = () => {
             </button>
 
 =======
+=======
+>>>>>>> Stashed changes
             <button className="add-btn" onClick={() => setStatusFilter(statusFilter === "Active" ? "Inactive" : "Active")}>
               <i className={`fa-solid ${statusFilter === "Active" ? "fa-user-slash" : "fa-user-check"}`}></i>
               {statusFilter === "Active" ? " View Inactive Users" : " View Active Users"}
             </button>
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
             <button className="add-btn" onClick={() => setShowModal(true)}>+ Add User</button>
           </div>
@@ -386,7 +424,10 @@ const ManageUsers = () => {
                 filteredUsers.map((u, index) => {
                   const isInactive = u.Status === "Inactive";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
                   return (
@@ -404,10 +445,14 @@ const ManageUsers = () => {
                         <button className="btn-view" onClick={() => openViewModal(u)}>View</button>
                         <button className="btn-update" onClick={() => openEditModal(u)}>Update</button>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                         <button
                           className={isInactive ? "btn-active-toggle" : "btn-delete"}
                           onClick={() => toggleUserStatus(u)}
                         >
+=======
+                        <button className={isInactive ? "btn-active-toggle" : "btn-delete"} onClick={() => toggleUserStatus(u)}>
+>>>>>>> Stashed changes
 =======
                         <button className={isInactive ? "btn-active-toggle" : "btn-delete"} onClick={() => toggleUserStatus(u)}>
 >>>>>>> Stashed changes
@@ -434,6 +479,7 @@ const ManageUsers = () => {
                   <label>First Name</label>
                   <input type="text" name="firstName" required value={formData.firstName} onChange={handleFormChange} />
                 </div>
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 
                 {!isEditMode && (
@@ -514,6 +560,43 @@ const ManageUsers = () => {
                 </div>
               </div>
 
+=======
+                <div className="input-group">
+                  <label>Last Name</label>
+                  <input type="text" name="lastName" required value={formData.lastName} onChange={handleFormChange} />
+                </div>
+              </div>
+
+              {!isEditMode && (
+                <div className="input-group">
+                  <label>Email</label>
+                  <input type="email" name="email" required value={formData.email} onChange={handleFormChange} />
+                </div>
+              )}
+
+              <div className="password-position-row">
+                {!isEditMode && (
+                  <div className="input-group">
+                    <label>Password</label>
+                    <div className="password-input-wrapper">
+                      <input type={showPassword ? "text" : "password"} name="password" required value={formData.password} readOnly />
+                      <button type="button" className="generate-btn" onClick={generatePassword}>Generate</button>
+                    </div>
+                  </div>
+                )}
+                <div className="input-group">
+                  <label>Position</label>
+                  <select name="position" value={formData.position} onChange={handleFormChange}>
+                    <option value="Admin">Admin</option>
+                    <option value="MP">Managing Partner (MP)</option>
+                    <option value="AL">Agent Leader (AL)</option>
+                    <option value="AP">Agent Partner (AP)</option>
+                    <option value="MD">Managing Director (MD)</option>
+                  </select>
+                </div>
+              </div>
+
+>>>>>>> Stashed changes
               {(formData.position === 'AP' || formData.position === 'AL') && (
                 <div className="input-group" style={{ marginTop: "10px" }}>
                   <label>Reports To (Supervisor)</label>
@@ -558,6 +641,7 @@ const ManageUsers = () => {
               <div className="input-group"><label>Email</label><input type="email" value={viewingUser.email || ""} readOnly /></div>
               <div className="input-group"><label>Position</label><input type="text" value={viewingUser.account_type || ""} readOnly /></div>
             </div>
+<<<<<<< Updated upstream
 
 <<<<<<< Updated upstream
               <div className="input-group" style={{ marginBottom: '15px' }}>
@@ -579,6 +663,9 @@ const ManageUsers = () => {
                       <>{viewingSupervisor.first_name} {viewingSupervisor.last_name} <span className="hierarchy-badge">{viewingSupervisor.account_type}</span></>
                     ) : <span>No supervisor assigned</span>}
 =======
+=======
+
+>>>>>>> Stashed changes
             <div className="hierarchy-section">
               <h3>Hierarchy</h3>
               <div className="hierarchy-item">
@@ -599,6 +686,9 @@ const ManageUsers = () => {
                         <span className="subordinate-badge">{sub.account_type}</span>
                       </div>
                     ))}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
                   </div>
                 ) : <div className="hierarchy-card empty">No direct reports found</div>}
