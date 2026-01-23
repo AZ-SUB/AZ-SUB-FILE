@@ -1,9 +1,0 @@
---- Debug Start ---
-Checking Tables...
-Error fetching tables: Could not find the table 'public.information_schema.tables' in the schema cache
-
---- Checking serial_number columns ---
-Error fetching serial_number columns: Could not find the table 'public.information_schema.columns' in the schema cache
-
---- Checking az_submission columns ---
-Error fetching az_submission columns: Could not find the table 'public.information_schema.columns' in the schema cache

@@ -10,7 +10,7 @@ import './MP_Styles.css';
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 const MPDashboard = () => {
-    const { mpStats, alPerformance, apPerformance } = useMPData();
+    const { mpStats, alPerformance, apPerformance, refreshData, loading, error } = useMPData();
     const navigate = useNavigate();
     const [viewMode, setViewMode] = useState('overview');
     const [searchTerm, setSearchTerm] = useState('');
@@ -21,7 +21,7 @@ const MPDashboard = () => {
         year: new Date().getFullYear(),
         search: ''
     });
-    
+
     // State for modals
     const [showAPsModal, setShowAPsModal] = useState(false);
     const [showPolicyModal, setShowPolicyModal] = useState(false);
@@ -29,10 +29,26 @@ const MPDashboard = () => {
     const [selectedStat, setSelectedStat] = useState(null);
     const [selectedAL, setSelectedAL] = useState(null);
     const [selectedAP, setSelectedAP] = useState(null);
-    
+
+    // State for policy details data
+    const [policyDetailsData, setPolicyDetailsData] = useState(null);
+    const [loadingPolicyDetails, setLoadingPolicyDetails] = useState(false);
+
+    // State for statistics history data
+    const [statHistoryCache, setStatHistoryCache] = useState({});
+    const [loadingStatHistory, setLoadingStatHistory] = useState(false);
+    const [currentHistoryData, setCurrentHistoryData] = useState(null);
+
+    // Fetch history data when selectedStat changes
+    useEffect(() => {
+        if (selectedStat && showStatDetailsModal) {
+            fetchStatHistoryData(selectedStat).then(data => setCurrentHistoryData(data));
+        }
+    }, [selectedStat, appliedFilters.year, appliedFilters.month, showStatDetailsModal]);
+
     // Month names for filter
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    
+
     // Generate years for filter
     const currentYear = new Date().getFullYear();
     const years = [currentYear - 2, currentYear - 1, currentYear];
@@ -44,7 +60,7 @@ const MPDashboard = () => {
             year: selectedYear,
             search: searchTerm
         });
-        
+
         // Update data based on filters
         updateFilteredData(selectedMonth, selectedYear, searchTerm);
     };
@@ -59,35 +75,55 @@ const MPDashboard = () => {
             year: currentYear,
             search: ''
         });
-        
+
         // Reset data to default
         updateFilteredData(new Date().getMonth(), currentYear, '');
     };
 
     // Function to update data based on filters
     const updateFilteredData = (month, year, search) => {
-        // This function would normally fetch new data from API
-        // For now, we'll just update the state with filtered data
-        console.log(`Filtering data for: Month ${month}, Year ${year}, Search: ${search}`);
+        setAppliedFilters({ month, year, search });
+        // Fetch new stats based on month and year
+        refreshData(month, year);
     };
 
     // Calculate summary statistics (updated with filter logic)
     const calculateStats = () => {
-        const totalALs = alPerformance.length;
-        const performingALs = alPerformance.filter(al => al.status === 'PERFORMING').length;
-        const totalALANP = alPerformance.reduce((sum, al) => sum + al.totalANP, 0);
-        const totalALPolicies = alPerformance.reduce((sum, al) => sum + al.totalCases, 0);
-        const avgActivityRatio = alPerformance.reduce((sum, al) => sum + al.activityRatio, 0) / totalALs;
+        const safeALPerformance = alPerformance || [];
+        const safeAPPerformance = apPerformance || [];
 
-        const totalAPs = apPerformance.length;
-        const activeAPs = apPerformance.filter(ap => ap.monthlyCases > 0).length; // Updated: Active if issued at least 1 policy
-        const totalAPANP = apPerformance.reduce((sum, ap) => sum + ap.totalANP, 0);
-        const totalAPPolicies = apPerformance.reduce((sum, ap) => sum + ap.totalCases, 0);
+        const totalALs = safeALPerformance.length;
+        const performingALs = safeALPerformance.filter(al => al.status === 'PERFORMING').length;
+        const totalALANP = safeALPerformance.reduce((sum, al) => sum + (al.totalANP || 0), 0);
+        const totalALPolicies = safeALPerformance.reduce((sum, al) => sum + (al.totalCases || 0), 0);
+
+        // Calculate Activity Ratio from filtered view or all data
+        // For accurate activity ratio: Active APs / Total APs
+        // Using data available in alPerformance
+        const totalActivityRatioSum = safeALPerformance.reduce((sum, al) => sum + (al.activityRatio || 0), 0);
+        const avgActivityRatio = totalALs > 0 ? totalActivityRatioSum / totalALs : 0;
+
+        const totalAPs = safeAPPerformance.length;
+
+        // Count active APs (those with at least 1 monthly case)
+        const activeAPs = safeAPPerformance.filter(ap => (ap.monthlyCases || 0) > 0).length;
+
+        const totalAPANP = safeAPPerformance.reduce((sum, ap) => sum + (ap.totalANP || 0), 0);
+        const totalAPPolicies = safeAPPerformance.reduce((sum, ap) => sum + (ap.totalCases || 0), 0);
         const avgANPPerAP = totalAPs > 0 ? totalAPANP / totalAPs : 0;
 
-        // Get month/year specific data
-        const monthData = getMonthSpecificData(selectedMonth, selectedYear);
-        
+        // Calculate month specific stats from real data
+        // Note: The backend currently returns 'monthlyANP' and 'monthlyCases' for the current month.
+        // To support historical filtering properly, the backend endpoint would need to accept month/year params.
+        const currentMonthlyANP = safeALPerformance.reduce((sum, al) => sum + (al.monthlyANP || 0), 0);
+        const currentMonthlyPolicies = safeALPerformance.reduce((sum, al) => sum + (al.monthlyCases || 0), 0);
+
+        const monthSpecificStats = {
+            activityRatio: Math.round(avgActivityRatio),
+            monthlyANP: currentMonthlyANP,
+            totalPolicies: currentMonthlyPolicies
+        };
+
         return {
             totalALs,
             performingALs,
@@ -99,186 +135,69 @@ const MPDashboard = () => {
             totalAPANP,
             totalAPPolicies,
             avgANPPerAP,
-            monthData
+            monthSpecificStats
         };
     };
 
-    // Get month/year specific data
-    const getMonthSpecificData = (month, year) => {
-        // Mock data for different months/years
-        const monthlyData = {
-            0: { // January
-                2024: { activityRatio: 75, monthlyANP: 2850000, totalPolicies: 2100 },
-                2025: { activityRatio: 78, monthlyANP: 3200000, totalPolicies: 2400 },
-                2026: { activityRatio: 82, monthlyANP: 3500000, totalPolicies: 2650 }
-            },
-            1: { // February
-                2024: { activityRatio: 76, monthlyANP: 2900000, totalPolicies: 2150 },
-                2025: { activityRatio: 79, monthlyANP: 3300000, totalPolicies: 2450 },
-                2026: { activityRatio: 83, monthlyANP: 3600000, totalPolicies: 2700 }
-            },
-            6: { // July
-                2024: { activityRatio: 80, monthlyANP: 3250000, totalPolicies: 2400 },
-                2025: { activityRatio: 83, monthlyANP: 3600000, totalPolicies: 2700 },
-                2026: { activityRatio: 86, monthlyANP: 3900000, totalPolicies: 2950 }
-            },
-            11: { // December
-                2024: { activityRatio: 85, monthlyANP: 3500000, totalPolicies: 2650 },
-                2025: { activityRatio: 88, monthlyANP: 3850000, totalPolicies: 2900 },
-                2026: { activityRatio: 90, monthlyANP: 4200000, totalPolicies: 3200 }
+    // Fetch historical data for stat cards from backend
+    const fetchStatHistoryData = async (statType) => {
+        // Check cache first
+        const cacheKey = `${statType}_${appliedFilters.year}_${appliedFilters.month}`;
+        if (statHistoryCache[cacheKey]) {
+            return statHistoryCache[cacheKey];
+        }
+
+        setLoadingStatHistory(true);
+        try {
+            const response = await fetch(
+                `http://localhost:3000/api/mp/monthly-history?year=${appliedFilters.year}&month=${appliedFilters.month}&statType=${statType}`
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-        };
 
-        // Default data
-        const defaultData = {
-            activityRatio: 75,
-            monthlyANP: 2980000,
-            totalPolicies: 2100
-        };
+            const result = await response.json();
 
-        return monthlyData[month]?.[year] || defaultData;
-    };
-
-    // Get historical data for stat cards
-    const getStatHistoryData = (statType) => {
-        const historyData = {
-            activityRatio: {
-                title: 'Activity Ratio History',
-                description: 'Monthly activity ratio trend over the past year',
-                data: [
-                    { month: 'Jan', value: 72, trend: 'up' },
-                    { month: 'Feb', value: 74, trend: 'up' },
-                    { month: 'Mar', value: 76, trend: 'up' },
-                    { month: 'Apr', value: 75, trend: 'down' },
-                    { month: 'May', value: 77, trend: 'up' },
-                    { month: 'Jun', value: 79, trend: 'up' },
-                    { month: 'Jul', value: 80, trend: 'up' },
-                    { month: 'Aug', value: 82, trend: 'up' },
-                    { month: 'Sep', value: 81, trend: 'down' },
-                    { month: 'Oct', value: 83, trend: 'up' },
-                    { month: 'Nov', value: 84, trend: 'up' },
-                    { month: 'Dec', value: 85, trend: 'up' }
-                ],
-                unit: '%'
-            },
-            totalANP: {
-                title: 'Total ANP History',
-                description: 'Cumulative Annual Premium growth over time',
-                data: [
-                    { month: 'Jan', value: 2.1, trend: 'up' },
-                    { month: 'Feb', value: 2.4, trend: 'up' },
-                    { month: 'Mar', value: 2.8, trend: 'up' },
-                    { month: 'Apr', value: 3.2, trend: 'up' },
-                    { month: 'May', value: 3.6, trend: 'up' },
-                    { month: 'Jun', value: 4.1, trend: 'up' },
-                    { month: 'Jul', value: 4.5, trend: 'up' },
-                    { month: 'Aug', value: 4.9, trend: 'up' },
-                    { month: 'Sep', value: 5.4, trend: 'up' },
-                    { month: 'Oct', value: 5.8, trend: 'up' },
-                    { month: 'Nov', value: 6.3, trend: 'up' },
-                    { month: 'Dec', value: 6.8, trend: 'up' }
-                ],
-                unit: 'M PHP',
-                prefix: 'PHP '
-            },
-            monthlyANP: {
-                title: 'Monthly ANP History',
-                description: 'Monthly ANP performance trend',
-                data: [
-                    { month: 'Jan', value: 285, trend: 'up' },
-                    { month: 'Feb', value: 290, trend: 'up' },
-                    { month: 'Mar', value: 295, trend: 'up' },
-                    { month: 'Apr', value: 310, trend: 'up' },
-                    { month: 'May', value: 325, trend: 'up' },
-                    { month: 'Jun', value: 340, trend: 'up' },
-                    { month: 'Jul', value: 330, trend: 'down' },
-                    { month: 'Aug', value: 320, trend: 'down' },
-                    { month: 'Sep', value: 335, trend: 'up' },
-                    { month: 'Oct', value: 350, trend: 'up' },
-                    { month: 'Nov', value: 365, trend: 'up' },
-                    { month: 'Dec', value: 380, trend: 'up' }
-                ],
-                unit: 'K PHP',
-                prefix: 'PHP '
-            },
-            totalCases: {
-                title: 'Total Cases History',
-                description: 'Total policies issued over time',
-                data: [
-                    { month: 'Jan', value: 2100, trend: 'up' },
-                    { month: 'Feb', value: 2150, trend: 'up' },
-                    { month: 'Mar', value: 2200, trend: 'up' },
-                    { month: 'Apr', value: 2300, trend: 'up' },
-                    { month: 'May', value: 2400, trend: 'up' },
-                    { month: 'Jun', value: 2500, trend: 'up' },
-                    { month: 'Jul', value: 2600, trend: 'up' },
-                    { month: 'Aug', value: 2700, trend: 'up' },
-                    { month: 'Sep', value: 2800, trend: 'up' },
-                    { month: 'Oct', value: 2900, trend: 'up' },
-                    { month: 'Nov', value: 3000, trend: 'up' },
-                    { month: 'Dec', value: 3200, trend: 'up' }
-                ],
-                unit: ''
-            },
-            totalALs: {
-                title: 'Agent Leaders History',
-                description: 'Number of Agent Leaders over time',
-                data: [
-                    { month: 'Jan', value: 8, trend: 'stable' },
-                    { month: 'Feb', value: 8, trend: 'stable' },
-                    { month: 'Mar', value: 9, trend: 'up' },
-                    { month: 'Apr', value: 9, trend: 'stable' },
-                    { month: 'May', value: 10, trend: 'up' },
-                    { month: 'Jun', value: 10, trend: 'stable' },
-                    { month: 'Jul', value: 11, trend: 'up' },
-                    { month: 'Aug', value: 11, trend: 'stable' },
-                    { month: 'Sep', value: 12, trend: 'up' },
-                    { month: 'Oct', value: 12, trend: 'stable' },
-                    { month: 'Nov', value: 13, trend: 'up' },
-                    { month: 'Dec', value: 13, trend: 'stable' }
-                ],
-                unit: 'ALs'
-            },
-            totalAPs: {
-                title: 'Agent Partners History',
-                description: 'Number of Agent Partners over time',
-                data: [
-                    { month: 'Jan', value: 45, trend: 'up' },
-                    { month: 'Feb', value: 48, trend: 'up' },
-                    { month: 'Mar', value: 52, trend: 'up' },
-                    { month: 'Apr', value: 55, trend: 'up' },
-                    { month: 'May', value: 58, trend: 'up' },
-                    { month: 'Jun', value: 62, trend: 'up' },
-                    { month: 'Jul', value: 65, trend: 'up' },
-                    { month: 'Aug', value: 68, trend: 'up' },
-                    { month: 'Sep', value: 72, trend: 'up' },
-                    { month: 'Oct', value: 75, trend: 'up' },
-                    { month: 'Nov', value: 78, trend: 'up' },
-                    { month: 'Dec', value: 82, trend: 'up' }
-                ],
-                unit: 'APs'
+            if (result.success && result.data) {
+                // Cache the result
+                setStatHistoryCache(prev => ({
+                    ...prev,
+                    [cacheKey]: result.data
+                }));
+                return result.data;
+            } else {
+                throw new Error(result.message || 'Failed to fetch history data');
             }
-        };
-
-        return historyData[statType] || {
-            title: 'Statistic History',
-            description: 'Historical data for this statistic',
-            data: [],
-            unit: ''
-        };
+        } catch (error) {
+            console.error('Error fetching stat history:', error);
+            // Return fallback data to prevent crash
+            return {
+                title: 'Statistic History',
+                description: 'Historical data for this statistic',
+                currentValue: 0,
+                yearlyChange: 0,
+                trend: 'stable',
+                monthlyData: [],
+                unit: '',
+                prefix: ''
+            };
+        } finally {
+            setLoadingStatHistory(false);
+        }
     };
 
     // Get top performers based on filters
     const getTopPerformers = () => {
         let filteredALs = [...alPerformance];
-        
+
         // Apply search filter
         if (appliedFilters.search) {
-            filteredALs = filteredALs.filter(al => 
+            filteredALs = filteredALs.filter(al =>
                 al.name.toLowerCase().includes(appliedFilters.search.toLowerCase())
             );
         }
-        
+
         // Sort by monthly ANP (with month/year adjustment)
         return filteredALs
             .sort((a, b) => {
@@ -295,58 +214,8 @@ const MPDashboard = () => {
         // Simple adjustment based on month
         const monthAdjustments = [1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.2, 1.15, 1.1, 1.05, 1.0, 0.95];
         const yearMultiplier = year === 2026 ? 1.2 : year === 2025 ? 1.1 : 1.0;
-        
+
         return baseANP * monthAdjustments[month] * yearMultiplier;
-    };
-
-    // Get most availed policies based on filters
-    const getMostAvailedPolicies = () => {
-        const basePolicies = [
-            { policy_name: 'Allianz Well', count: 45, percentage: 32, category: 'System' },
-            { policy_name: 'Eazy Health', count: 32, percentage: 23, category: 'Manual' },
-            { policy_name: 'Allianz Fundamental Cover', count: 28, percentage: 20, category: 'Manual' },
-            { policy_name: 'AZpire Growth', count: 20, percentage: 14, category: 'System' },
-            { policy_name: 'Allianz Secure Pro', count: 10, percentage: 7, category: 'Manual' },
-            { policy_name: 'Single Pay/Optimal', count: 5, percentage: 4, category: 'System' }
-        ];
-
-        // Adjust counts based on month/year
-        const monthMultiplier = appliedFilters.month === 11 ? 1.3 : appliedFilters.month === 0 ? 0.8 : 1.0;
-        const yearMultiplier = appliedFilters.year === 2026 ? 1.2 : appliedFilters.year === 2025 ? 1.1 : 1.0;
-        const totalMultiplier = monthMultiplier * yearMultiplier;
-
-        return basePolicies.map(policy => ({
-            ...policy,
-            count: Math.round(policy.count * totalMultiplier),
-            percentage: Math.round(policy.percentage * totalMultiplier * 100) / 100
-        }));
-    };
-
-    // Get monthly issued policies based on year
-    const getMonthlyIssuedPolicies = () => {
-        const baseData = [
-            { month: 'Jan', issued: 18, anp: 1450000 },
-            { month: 'Feb', issued: 22, anp: 1680000 },
-            { month: 'Mar', issued: 25, anp: 1950000 },
-            { month: 'Apr', issued: 28, anp: 2200000 },
-            { month: 'May', issued: 32, anp: 2550000 },
-            { month: 'Jun', issued: 35, anp: 2850000 },
-            { month: 'Jul', issued: 30, anp: 2450000 },
-            { month: 'Aug', issued: 28, anp: 2300000 },
-            { month: 'Sep', issued: 26, anp: 2100000 },
-            { month: 'Oct', issued: 24, anp: 1950000 },
-            { month: 'Nov', issued: 20, anp: 1650000 },
-            { month: 'Dec', issued: 18, anp: 1500000 }
-        ];
-
-        // Adjust for selected year
-        const yearMultiplier = appliedFilters.year === 2026 ? 1.2 : appliedFilters.year === 2025 ? 1.1 : 1.0;
-        
-        return baseData.map(item => ({
-            month: item.month,
-            issued: Math.round(item.issued * yearMultiplier),
-            anp: Math.round(item.anp * yearMultiplier)
-        }));
     };
 
     // Handle View APs Modal
@@ -356,9 +225,23 @@ const MPDashboard = () => {
     };
 
     // Handle View Policy Details Modal
-    const handleViewPolicyDetails = (al) => {
+    const handleViewPolicyDetails = async (al) => {
         setSelectedAL(al);
         setShowPolicyModal(true);
+
+        // Fetch policy details data
+        setLoadingPolicyDetails(true);
+        try {
+            const response = await fetch(`http://localhost:3000/api/mp/policy-details/${al.id}?year=${appliedFilters.year}`);
+            const result = await response.json();
+            if (result.success) {
+                setPolicyDetailsData(result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching policy details:', error);
+        } finally {
+            setLoadingPolicyDetails(false);
+        }
     };
 
     // Handle Stat Card Click
@@ -377,21 +260,29 @@ const MPDashboard = () => {
     // Render stat details modal content
     const renderStatDetails = () => {
         if (!selectedStat) return null;
-        
+
         const stats = calculateStats();
-        const historyData = getStatHistoryData(selectedStat);
+        const { monthSpecificStats } = stats;
         const currentMonth = months[appliedFilters.month];
-        
+
+        if (!currentHistoryData) {
+            return (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                    <div style={{ fontSize: '16px', color: '#64748b' }}>Loading statistics history...</div>
+                </div>
+            );
+        }
+
         return (
             <div>
-                <h3 style={{ marginBottom: '8px', color: '#0f172a' }}>{historyData.title}</h3>
+                <h3 style={{ marginBottom: '8px', color: '#0f172a' }}>{currentHistoryData.title}</h3>
                 <p style={{ marginBottom: '24px', color: '#64748b', fontSize: '14px' }}>
-                    {historyData.description} - {currentMonth} {appliedFilters.year}
+                    {currentHistoryData.description} - {currentMonth} {appliedFilters.year}
                 </p>
-                
-                <div style={{ 
-                    background: '#f8fafc', 
-                    padding: '20px', 
+
+                <div style={{
+                    background: '#f8fafc',
+                    padding: '20px',
                     borderRadius: '12px',
                     marginBottom: '24px'
                 }}>
@@ -399,28 +290,28 @@ const MPDashboard = () => {
                         <div>
                             <div style={{ fontSize: '12px', color: '#64748b' }}>Current Value</div>
                             <div style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a' }}>
-                                {selectedStat === 'activityRatio' && `${getMonthSpecificData(appliedFilters.month, appliedFilters.year).activityRatio}%`}
-                                {selectedStat === 'totalANP' && `PHP ${(stats.totalALANP / 1000000).toFixed(1)}M`}
-                                {selectedStat === 'monthlyANP' && `PHP ${getMonthSpecificData(appliedFilters.month, appliedFilters.year).monthlyANP.toLocaleString()}`}
-                                {selectedStat === 'totalCases' && getMonthSpecificData(appliedFilters.month, appliedFilters.year).totalPolicies.toLocaleString()}
+                                {selectedStat === 'activityRatio' && `${monthSpecificStats.activityRatio}%`}
+                                {selectedStat === 'totalANP' && `₱ ${(stats.totalALANP / 1000000).toFixed(1)}M`}
+                                {selectedStat === 'monthlyANP' && `₱ ${monthSpecificStats.monthlyANP.toLocaleString()}`}
+                                {selectedStat === 'totalCases' && monthSpecificStats.totalPolicies.toLocaleString()}
                                 {selectedStat === 'totalALs' && stats.totalALs}
                                 {selectedStat === 'totalAPs' && stats.totalAPs}
                             </div>
                         </div>
                         <div>
                             <div style={{ fontSize: '12px', color: '#64748b' }}>Yearly Change</div>
-                            <div style={{ fontSize: '24px', fontWeight: '700', color: '#28a745' }}>
-                                {selectedStat === 'activityRatio' && '+2.3%'}
-                                {selectedStat === 'totalANP' && '+12.5%'}
-                                {selectedStat === 'monthlyANP' && '+8.2%'}
-                                {selectedStat === 'totalCases' && '+5.7%'}
-                                {selectedStat === 'totalALs' && '+15.4%'}
-                                {selectedStat === 'totalAPs' && '+12.2%'}
+                            <div style={{
+                                fontSize: '24px',
+                                fontWeight: '700',
+                                color: currentHistoryData.trend === 'up' ? '#28a745' :
+                                    currentHistoryData.trend === 'down' ? '#dc3545' : '#6c757d'
+                            }}>
+                                {currentHistoryData.trend === 'up' && '+'}{currentHistoryData.yearlyChange.toFixed(1)}%
                             </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Monthly History</h4>
                 <div className="modal-table-responsive">
                     <table className="performance-table">
@@ -433,10 +324,10 @@ const MPDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {historyData.data.map((item, index) => {
-                                const prevValue = index > 0 ? historyData.data[index - 1].value : item.value;
-                                const change = ((item.value - prevValue) / prevValue * 100).toFixed(1);
-                                
+                            {currentHistoryData.monthlyData.map((item, index) => {
+                                const prevValue = index > 0 ? currentHistoryData.monthlyData[index - 1].value : item.value;
+                                const change = prevValue > 0 ? ((item.value - prevValue) / prevValue * 100).toFixed(1) : 0;
+
                                 return (
                                     <tr key={item.month}>
                                         <td>
@@ -444,7 +335,7 @@ const MPDashboard = () => {
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: '600' }}>
-                                                {historyData.prefix || ''}{item.value.toLocaleString()} {historyData.unit}
+                                                {currentHistoryData.prefix || ''}{item.value.toLocaleString()} {currentHistoryData.unit}
                                             </div>
                                         </td>
                                         <td>
@@ -453,10 +344,10 @@ const MPDashboard = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <div style={{ 
+                                            <div style={{
                                                 fontWeight: '600',
-                                                color: item.trend === 'up' ? '#28a745' : 
-                                                       item.trend === 'down' ? '#dc3545' : '#6c757d'
+                                                color: item.trend === 'up' ? '#28a745' :
+                                                    item.trend === 'down' ? '#dc3545' : '#6c757d'
                                             }}>
                                                 {item.trend === 'up' ? '+' : item.trend === 'down' ? '-' : ''}{index > 0 ? `${change}%` : 'N/A'}
                                             </div>
@@ -467,16 +358,16 @@ const MPDashboard = () => {
                         </tbody>
                     </table>
                 </div>
-                
+
                 <div style={{ marginTop: '24px' }}>
                     <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Trend Visualization</h4>
                     <div style={{ height: '200px' }}>
-                        <Bar 
+                        <Bar
                             data={{
-                                labels: historyData.data.map(d => d.month),
+                                labels: currentHistoryData.monthlyData.map(d => d.month),
                                 datasets: [{
-                                    label: historyData.title,
-                                    data: historyData.data.map(d => d.value),
+                                    label: currentHistoryData.title,
+                                    data: currentHistoryData.monthlyData.map(d => d.value),
                                     backgroundColor: '#003781',
                                     borderRadius: 4
                                 }]
@@ -491,8 +382,8 @@ const MPDashboard = () => {
                                     y: {
                                         beginAtZero: true,
                                         ticks: {
-                                            callback: function(value) {
-                                                return historyData.prefix ? `${historyData.prefix}${value}${historyData.unit}` : `${value}${historyData.unit}`;
+                                            callback: function (value) {
+                                                return currentHistoryData.prefix ? `${currentHistoryData.prefix}${value}${currentHistoryData.unit}` : `${value}${currentHistoryData.unit}`;
                                             }
                                         }
                                     }
@@ -505,13 +396,34 @@ const MPDashboard = () => {
         );
     };
 
+    if (loading) {
+        return (
+            <MPLayout title="Dashboard">
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+                    <div style={{ fontSize: '18px', color: '#64748b' }}>Loading dashboard data...</div>
+                </div>
+            </MPLayout>
+        );
+    }
+
+    if (error) {
+        return (
+            <MPLayout title="Dashboard">
+                <div style={{ padding: '24px', color: 'red' }}>Error loading data: {error}</div>
+            </MPLayout>
+        );
+    }
+
     // Calculate current stats
     const stats = calculateStats();
-    const topALs = getTopPerformers();
-    const mostAvailedPolicies = getMostAvailedPolicies();
-    const monthlyIssuedPolicies = getMonthlyIssuedPolicies();
+
+    // Use real chart data from backend (mpStats)
+    // Note: mpStats is already updated by refreshData(year)
+    const mostAvailedPolicies = mpStats.policyDistribution || [];
+    const monthlyIssuedPolicies = mpStats.monthlyTrend || [];
+
     const selectedMonthYear = `${months[appliedFilters.month]} ${appliedFilters.year}`;
-    const monthSpecificStats = getMonthSpecificData(appliedFilters.month, appliedFilters.year);
+    const monthSpecificStats = stats.monthSpecificStats;
 
     // Chart data for most availed policies
     const policyChartData = {
@@ -544,6 +456,9 @@ const MPDashboard = () => {
         ]
     };
 
+    // Get top performing ALs for the table
+    const topALs = getTopPerformers();
+
     // Render the overview
     const renderOverview = () => (
         <>
@@ -551,7 +466,7 @@ const MPDashboard = () => {
             <div className="mp-filters">
                 <div className="filter-group">
                     <label>Select Month:</label>
-                    <select 
+                    <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
                         className="mp-filter-select"
@@ -561,10 +476,10 @@ const MPDashboard = () => {
                         ))}
                     </select>
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Select Year:</label>
-                    <select 
+                    <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                         className="mp-filter-select"
@@ -574,7 +489,7 @@ const MPDashboard = () => {
                         ))}
                     </select>
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Search AL/AP:</label>
                     <input
@@ -599,12 +514,12 @@ const MPDashboard = () => {
                 </div>
             </div>
 
-            
+
 
             {/* Top Stats Cards - Now clickable with hover effect */}
             <div className="dashboard-grid">
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #003781', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('activityRatio')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -618,8 +533,8 @@ const MPDashboard = () => {
                     <div className="stat-subtext">{stats.activeAPs} of {stats.totalAPs} APs active</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #28a745', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalANP')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -629,12 +544,12 @@ const MPDashboard = () => {
                         <div className="stat-label">Total ANP</div>
                         <div className="stat-trend up">↑ 12.5%</div>
                     </div>
-                    <div className="stat-value">PHP {(stats.totalALANP / 1000000).toFixed(1)}M</div>
+                    <div className="stat-value">₱ {(stats.totalALANP / 1000000).toFixed(1)}M</div>
                     <div className="stat-subtext">All-time Annual Premium</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #0055b8', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('monthlyANP')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -644,12 +559,12 @@ const MPDashboard = () => {
                         <div className="stat-label">Monthly ANP</div>
                         <div className="stat-trend up">↑ 8.2%</div>
                     </div>
-                    <div className="stat-value">PHP {monthSpecificStats.monthlyANP.toLocaleString()}</div>
+                    <div className="stat-value">₱ {monthSpecificStats.monthlyANP.toLocaleString()}</div>
                     <div className="stat-subtext">{selectedMonthYear} Performance</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #f39c12', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalCases')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -666,8 +581,8 @@ const MPDashboard = () => {
 
             {/* Second Row - Network Stats - Now clickable with hover effect */}
             <div className="dashboard-grid">
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #9b59b6', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalALs')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -678,11 +593,11 @@ const MPDashboard = () => {
                         <div className="stat-trend up">↑ 15.4%</div>
                     </div>
                     <div className="stat-value">{stats.totalALs}</div>
-                    <div className="stat-subtext">{stats.performingALs} Performing ({((stats.performingALs/stats.totalALs)*100).toFixed(0)}%)</div>
+                    <div className="stat-subtext">{stats.performingALs} Performing ({((stats.performingALs / stats.totalALs) * 100).toFixed(0)}%)</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #e74c3c', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalAPs')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -693,11 +608,11 @@ const MPDashboard = () => {
                         <div className="stat-trend up">↑ 12.2%</div>
                     </div>
                     <div className="stat-value">{stats.totalAPs}</div>
-                    <div className="stat-subtext">{stats.activeAPs} Active ({((stats.activeAPs/stats.totalAPs)*100).toFixed(0)}%)</div>
+                    <div className="stat-subtext">{stats.activeAPs} Active ({((stats.activeAPs / stats.totalAPs) * 100).toFixed(0)}%)</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #1abc9c', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('activityRatio')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -711,8 +626,8 @@ const MPDashboard = () => {
                     <div className="stat-subtext">Average across all ALs</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #2c3e50', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalANP')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -722,7 +637,7 @@ const MPDashboard = () => {
                         <div className="stat-label">AP Avg. ANP</div>
                         <div className="stat-trend up">↑ 8.7%</div>
                     </div>
-                    <div className="stat-value">PHP {stats.avgANPPerAP.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                    <div className="stat-value">₱ {stats.avgANPPerAP.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                     <div className="stat-subtext">Per Active Partner</div>
                 </div>
             </div>
@@ -735,10 +650,10 @@ const MPDashboard = () => {
                         <div className="chart-subtitle">Popularity by policy type</div>
                     </div>
                     <div className="chart-wrapper">
-                        <Bar 
-                            data={policyChartData} 
-                            options={{ 
-                                responsive: true, 
+                        <Bar
+                            data={policyChartData}
+                            options={{
+                                responsive: true,
                                 maintainAspectRatio: false,
                                 plugins: {
                                     legend: { display: false }
@@ -751,7 +666,7 @@ const MPDashboard = () => {
                                         }
                                     }
                                 }
-                            }} 
+                            }}
                         />
                     </div>
                 </div>
@@ -762,10 +677,10 @@ const MPDashboard = () => {
                         <div className="chart-subtitle">Policies vs ANP by month</div>
                     </div>
                     <div className="chart-wrapper">
-                        <Bar 
-                            data={monthlyChartData} 
-                            options={{ 
-                                responsive: true, 
+                        <Bar
+                            data={monthlyChartData}
+                            options={{
+                                responsive: true,
                                 maintainAspectRatio: false,
                                 plugins: {
                                     legend: { position: 'top' }
@@ -786,14 +701,14 @@ const MPDashboard = () => {
                                         position: 'right',
                                         title: {
                                             display: true,
-                                            text: 'ANP (M PHP)'
+                                            text: 'ANP (M ₱)'
                                         },
                                         grid: {
                                             drawOnChartArea: false
                                         }
                                     }
                                 }
-                            }} 
+                            }}
                         />
                     </div>
                 </div>
@@ -824,22 +739,22 @@ const MPDashboard = () => {
                         <tbody>
                             {topALs.map((al, index) => {
                                 const adjustedANP = adjustANPForMonth(al.monthlyANP, appliedFilters.month, appliedFilters.year);
-                                
+
                                 return (
                                     <tr key={al.id}>
                                         <td>
                                             <div className="rank-badge" style={{
-                                                background: index === 0 ? '#FFD700' : 
-                                                           index === 1 ? '#C0C0C0' : 
-                                                           index === 2 ? '#CD7F32' : '#f8fafc',
-                                                borderColor: index === 0 ? '#FFD700' : 
-                                                           index === 1 ? '#C0C0C0' : 
-                                                           index === 2 ? '#CD7F32' : '#e2e8f0',
+                                                background: index === 0 ? '#FFD700' :
+                                                    index === 1 ? '#C0C0C0' :
+                                                        index === 2 ? '#CD7F32' : '#f8fafc',
+                                                borderColor: index === 0 ? '#FFD700' :
+                                                    index === 1 ? '#C0C0C0' :
+                                                        index === 2 ? '#CD7F32' : '#e2e8f0',
                                                 color: index < 3 ? '#000' : '#0f172a'
                                             }}>
-                                                {index === 0 ? '🥇 ' : 
-                                                 index === 1 ? '🥈 ' : 
-                                                 index === 2 ? '🥉 ' : `#${index + 1}`}
+                                                {index === 0 ? '🥇 ' :
+                                                    index === 1 ? '🥈 ' :
+                                                        index === 2 ? '🥉 ' : `#${index + 1}`}
                                             </div>
                                         </td>
                                         <td>
@@ -848,10 +763,10 @@ const MPDashboard = () => {
                                                 <div className="agent-detail">ID: AL-{al.id.toString().padStart(4, '0')}</div>
                                             </div>
                                         </td>
-                                        
+
                                         <td>
                                             <div style={{ fontWeight: '600', color: '#0f172a' }}>
-                                                PHP {adjustedANP.toLocaleString()}
+                                                ₱ {adjustedANP.toLocaleString()}
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#64748b' }}>
                                                 {al.monthlyANP.toLocaleString()} base
@@ -860,7 +775,7 @@ const MPDashboard = () => {
                                         <td>
                                             <div className="activity-ratio">
                                                 <div className="ratio-bar">
-                                                    <div 
+                                                    <div
                                                         className="ratio-fill"
                                                         style={{ width: `${al.activityRatio}%` }}
                                                     ></div>
@@ -932,7 +847,7 @@ const MPDashboard = () => {
                                     Historical data and detailed information
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 className="mp-modal-close"
                                 onClick={() => setShowStatDetailsModal(false)}
                             >
@@ -941,7 +856,7 @@ const MPDashboard = () => {
                         </div>
                         <div className="mp-modal-body">
                             {renderStatDetails()}
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     onClick={() => setShowStatDetailsModal(false)}
@@ -967,7 +882,7 @@ const MPDashboard = () => {
                                     APs under this Agent Leader and their performance
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 className="mp-modal-close"
                                 onClick={() => setShowAPsModal(false)}
                             >
@@ -975,9 +890,9 @@ const MPDashboard = () => {
                             </button>
                         </div>
                         <div className="mp-modal-body">
-                            <div style={{ 
-                                background: '#f8fafc', 
-                                padding: '20px', 
+                            <div style={{
+                                background: '#f8fafc',
+                                padding: '20px',
                                 borderRadius: '12px',
                                 marginBottom: '20px'
                             }}>
@@ -1008,7 +923,7 @@ const MPDashboard = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Agent Partners List</h4>
                             <table className="performance-table">
                                 <thead>
@@ -1027,7 +942,7 @@ const MPDashboard = () => {
                                         .slice(0, 5)
                                         .map(ap => {
                                             const performanceStatus = getAPPerformanceStatus(ap.monthlyCases);
-                                            
+
                                             return (
                                                 <tr key={ap.id}>
                                                     <td>
@@ -1054,9 +969,9 @@ const MPDashboard = () => {
                                                     </td>
                                                     <td>
                                                         <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                                            {ap.monthlyCases >= 7 ? '🎯 Performing (7+ cases)' : 
-                                                             ap.monthlyCases >= 4 ? '📊 Average (4-6 cases)' : 
-                                                             '⚠️ Needs Improvement (<4 cases)'}
+                                                            {ap.monthlyCases >= 7 ? '🎯 Performing (7+ cases)' :
+                                                                ap.monthlyCases >= 4 ? '📊 Average (4-6 cases)' :
+                                                                    '⚠️ Needs Improvement (<4 cases)'}
                                                         </div>
                                                     </td>
                                                     <td>
@@ -1072,7 +987,7 @@ const MPDashboard = () => {
                                         })}
                                 </tbody>
                             </table>
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     onClick={() => setShowAPsModal(false)}
@@ -1098,7 +1013,7 @@ const MPDashboard = () => {
                                     Policy distribution and monthly performance for {months[selectedMonth]} {selectedYear}
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 className="mp-modal-close"
                                 onClick={() => setShowPolicyModal(false)}
                             >
@@ -1106,72 +1021,99 @@ const MPDashboard = () => {
                             </button>
                         </div>
                         <div className="mp-modal-body">
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-                                <div>
-                                    <h3 style={{ marginBottom: '16px', color: '#0f172a' }}>Policy Distribution</h3>
-                                    <div style={{ height: '300px' }}>
-                                        <Bar 
-                                            data={{
-                                                labels: ['Allianz Well', 'Eazy Health', 'Allianz Fundamental Cover', 'AZpire Growth', 'Allianz Secure Pro', 'Single Pay/Optimal'],
-                                                datasets: [{
-                                                    label: 'Policy Count',
-                                                    data: [145, 80, 55, 25, 10, 5],
-                                                    backgroundColor: ['#003781', '#0055b8', '#4d7cff', '#ffc107', '#e74c3c', '#2c3e50'],
-                                                    borderRadius: 6
-                                                }]
-                                            }}
-                                            options={{
-                                                responsive: true,
-                                                maintainAspectRatio: false,
-                                                plugins: {
-                                                    legend: { display: false }
-                                                },
-                                                scales: {
-                                                    y: {
-                                                        beginAtZero: true,
-                                                        ticks: {
-                                                            stepSize: 10
-                                                        }
-                                                    }
-                                                }
-                                            }}
-                                        />
-                                    </div>
+                            {loadingPolicyDetails ? (
+                                <div style={{ textAlign: 'center', padding: '40px' }}>
+                                    <div style={{ fontSize: '16px', color: '#64748b' }}>Loading policy details...</div>
                                 </div>
-                                
-                                <div>
-                                    <h3 style={{ marginBottom: '16px', color: '#0f172a' }}>Monthly Trend - {selectedYear}</h3>
-                                    <div style={{ height: '300px' }}>
-                                        <Bar 
-                                            data={{
-                                                labels: months.map(m => m.substring(0, 3)),
-                                                datasets: [{
-                                                    label: 'Policies Issued',
-                                                    data: [15, 18, 22, 25, 28, 30, 25, 22, 20, 18, 15, 12],
-                                                    backgroundColor: '#003781',
-                                                    borderRadius: 6
-                                                }]
-                                            }}
-                                            options={{
-                                                responsive: true,
-                                                maintainAspectRatio: false,
-                                                plugins: {
-                                                    legend: { display: false }
-                                                },
-                                                scales: {
-                                                    y: {
-                                                        beginAtZero: true,
-                                                        ticks: {
-                                                            stepSize: 5
+                            ) : policyDetailsData ? (
+                                <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                                        <div>
+                                            <h3 style={{ marginBottom: '16px', color: '#0f172a' }}>Policy Distribution</h3>
+                                            <div style={{ height: '300px' }}>
+                                                <Bar
+                                                    data={{
+                                                        labels: policyDetailsData.policyDistribution.map(p => p.policy_name),
+                                                        datasets: [{
+                                                            label: 'Policy Count',
+                                                            data: policyDetailsData.policyDistribution.map(p => p.count),
+                                                            backgroundColor: ['#003781', '#0055b8', '#4d7cff', '#ffc107', '#e74c3c', '#2c3e50'],
+                                                            borderRadius: 6
+                                                        }]
+                                                    }}
+                                                    options={{
+                                                        responsive: true,
+                                                        maintainAspectRatio: false,
+                                                        plugins: {
+                                                            legend: { display: false }
+                                                        },
+                                                        scales: {
+                                                            y: {
+                                                                beginAtZero: true,
+                                                                ticks: {
+                                                                    stepSize: 10
+                                                                }
+                                                            }
                                                         }
-                                                    }
-                                                }
-                                            }}
-                                        />
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                <h3 style={{ margin: 0, color: '#0f172a' }}>Monthly Trend - {appliedFilters.year}</h3>
+                                                <div style={{
+                                                    background: '#e3f2fd',
+                                                    padding: '8px 16px',
+                                                    borderRadius: '8px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px'
+                                                }}>
+                                                    <span style={{ fontSize: '12px', color: '#0055b8', fontWeight: '600' }}>Total Cases:</span>
+                                                    <span style={{ fontSize: '18px', fontWeight: '700', color: '#003781' }}>
+                                                        {policyDetailsData.totalCases}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div style={{ height: '300px' }}>
+                                                <Bar
+                                                    data={{
+                                                        labels: months.map(m => m.substring(0, 3)),
+                                                        datasets: [{
+                                                            label: 'Policies Issued',
+                                                            data: policyDetailsData.monthlyTrend.map(m => m.policiesIssued),
+                                                            backgroundColor: '#003781',
+                                                            borderRadius: 6
+                                                        }]
+                                                    }}
+                                                    options={{
+                                                        responsive: true,
+                                                        maintainAspectRatio: false,
+                                                        plugins: {
+                                                            legend: { display: false }
+                                                        },
+                                                        scales: {
+                                                            y: {
+                                                                beginAtZero: true,
+                                                                ticks: {
+                                                                    stepSize: 5
+                                                                }
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
+                                </>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px' }}>
+                                    <div style={{ fontSize: '16px', color: '#64748b' }}>No policy data available</div>
                                 </div>
-                            </div>
-                            
+                            )}
+
                             <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
                                 <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Policy Statistics - {selectedMonthYear}</h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
@@ -1196,12 +1138,14 @@ const MPDashboard = () => {
                                     <div>
                                         <div style={{ fontSize: '12px', color: '#64748b' }}>Most Availed</div>
                                         <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>
-                                            Allianz Well
+                                            {policyDetailsData && policyDetailsData.policyDistribution && policyDetailsData.policyDistribution.length > 0
+                                                ? policyDetailsData.policyDistribution[0].policy_name
+                                                : 'N/A'}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Policy Breakdown</h4>
                             <table className="policy-table">
                                 <thead>
@@ -1214,45 +1158,46 @@ const MPDashboard = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {[
-                                        { policy_name: 'Allianz Well', category: 'System', count: 145, percentage: 45 },
-                                        { policy_name: 'Eazy Health', category: 'Manual', count: 80, percentage: 25 },
-                                        { policy_name: 'Allianz Fundamental Cover', category: 'Manual', count: 55, percentage: 17 },
-                                        { policy_name: 'AZpire Growth', category: 'System', count: 25, percentage: 8 },
-                                        { policy_name: 'Allianz Secure Pro', category: 'Manual', count: 10, percentage: 3 },
-                                        { policy_name: 'Single Pay/Optimal', category: 'System', count: 5, percentage: 2 }
-                                    ].map((policy, index) => {
-                                        const estimatedANP = Math.floor(policy.count * 50000);
-                                        
-                                        return (
-                                            <tr key={policy.policy_name}>
-                                                <td>
-                                                    <div style={{ fontWeight: '600' }}>{policy.policy_name}</div>
-                                                </td>
-                                                <td>
-                                                    <span className={`category-badge ${policy.category.toLowerCase()}`}>
-                                                        {policy.category}
-                                                    </span>
-                                                </td>
-                                                <td style={{ fontWeight: '600', textAlign: 'center' }}>{policy.count}</td>
-                                                <td>
-                                                    <div className="percentage-bar">
-                                                        <div 
-                                                            className="percentage-fill"
-                                                            style={{ width: `${policy.percentage}%` }}
-                                                        ></div>
-                                                        <span className="percentage-value">{policy.percentage}%</span>
-                                                    </div>
-                                                </td>
-                                                <td style={{ fontWeight: '600', color: '#28a745' }}>
-                                                    PHP {estimatedANP.toLocaleString()}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                    {policyDetailsData && policyDetailsData.policyDistribution && policyDetailsData.policyDistribution.length > 0 ? (
+                                        policyDetailsData.policyDistribution.map((policy, index) => {
+                                            const estimatedANP = Math.floor(policy.count * 50000);
+
+                                            return (
+                                                <tr key={policy.policy_name}>
+                                                    <td>
+                                                        <div style={{ fontWeight: '600' }}>{policy.policy_name}</div>
+                                                    </td>
+                                                    <td>
+                                                        <span className="category-badge system">
+                                                            System
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ fontWeight: '600', textAlign: 'center' }}>{policy.count}</td>
+                                                    <td>
+                                                        <div className="percentage-bar">
+                                                            <div
+                                                                className="percentage-fill"
+                                                                style={{ width: `${policy.percentage}%` }}
+                                                            ></div>
+                                                            <span className="percentage-value">{policy.percentage}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ fontWeight: '600', color: '#28a745' }}>
+                                                        PHP {estimatedANP.toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                                                No policy data available
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     onClick={() => setShowPolicyModal(false)}
