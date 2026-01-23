@@ -1,7 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import MainLayout from './components/Layout/MainLayout';
 import Login from './pages/Login/Login';
+
+// MP Data Provider
+import { MPDataProvider } from './pages/MP/MPData.jsx';
 
 // AP Pages
 import APDashboard from './pages/AP/DashboardPage';
@@ -24,8 +27,8 @@ import ALTeamPerformance from './pages/AL/PerformanceDashboardPage';
 
 // MP Pages
 
-import MPDashboard from './pages/MP/MP-Dashboard';     
-import ALPerformance from './pages/MP/ALPerformance';  
+import MPDashboard from './pages/MP/MP-Dashboard';
+import ALPerformance from './pages/MP/ALPerformance';
 import APPerformance from './pages/MP/APPerformance';
 
 // MP Pages
@@ -65,9 +68,11 @@ function App() {
           <Route path="/al/doc-history" element={<MainLayout><DocHistoryPage /></MainLayout>} />
 
           {/* MD/MP Routes */}
-          <Route path="/mp/dashboard" element={<MPDashboard />} />
-          <Route path="/mp/al-performance" element={<ALPerformance />} />
-          <Route path="/mp/ap-performance" element={<APPerformance />} />
+          <Route element={<MPDataProvider><Outlet /></MPDataProvider>}>
+            <Route path="/mp/dashboard" element={<MPDashboard />} />
+            <Route path="/mp/al-performance" element={<ALPerformance />} />
+            <Route path="/mp/ap-performance" element={<APPerformance />} />
+          </Route>
 
           {/* MD Routes */}
           <Route path="/md/dashboard" element={<MDDashboard />} />

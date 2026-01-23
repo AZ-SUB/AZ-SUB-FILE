@@ -12,8 +12,6 @@ const ManageUsers = () => {
   // List Data
   const [users, setUsers] = useState([]);
   const [user, setUser] = useState(null); // Admin session user
-<<<<<<< Updated upstream
-  // --- ADD THESE BLOCKS ---
   const [statusFilter, setStatusFilter] = useState("Active"); // Default to Active
 
   // Derived state to filter the list based on the "Status" column
@@ -21,16 +19,6 @@ const ManageUsers = () => {
     const currentStatus = u.Status || "Active"; // Treat null as Active
     return currentStatus === statusFilter;
   });
-=======
-  const [statusFilter, setStatusFilter] = useState("Active"); // Default to Active
-
-  // Derived state to filter the list based on the "Status" column
-  const filteredUsers = users.filter((u) => {
-    const currentStatus = u.Status || "Active"; // Treat null as Active
-    return currentStatus === statusFilter;
-  });
-
->>>>>>> Stashed changes
   // UI States
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -169,12 +157,9 @@ const ManageUsers = () => {
           last_name: formData.lastName,
           email: formData.email,
           account_type: formData.position,
-<<<<<<< Updated upstream
+
           Status: "Active", // Explicitly set this here
           app_password: formData.appPassword
-=======
-          Status: "Active",
->>>>>>> Stashed changes
         });
         if (profileError) throw profileError;
         setSuccessMsg("User created successfully!");
@@ -248,7 +233,7 @@ const ManageUsers = () => {
     setViewingSupervisor(null);
     setViewingSubordinates([]);
   };
-<<<<<<< Updated upstream
+
   const toggleUserStatus = async (userItem) => {
     const currentStatus = userItem.Status || "Active";
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -269,22 +254,6 @@ const ManageUsers = () => {
       } else {
         fetchUsers(); // Refresh the table
       }
-=======
-
-  const toggleUserStatus = async (userItem) => {
-    const currentStatus = userItem.Status || "Active";
-    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    const actionText = newStatus === "Inactive" ? "deactivate" : "reactivate";
-    
-    if (window.confirm(`Are you sure you want to ${actionText} ${userItem.first_name} ${userItem.last_name}?`)) {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ Status: newStatus })
-        .eq("id", userItem.id);
-
-      if (error) alert("Error: " + error.message);
-      else fetchUsers();
->>>>>>> Stashed changes
     }
   };
 
@@ -343,7 +312,7 @@ const ManageUsers = () => {
         <div className="header-row">
           <h1>Manage Users</h1>
           <div className="header-actions">
-<<<<<<< Updated upstream
+
             {/* Toggle Filter Button */}
             <button
               className="add-btn"
@@ -353,15 +322,9 @@ const ManageUsers = () => {
               {statusFilter === "Active" ? " View Inactive Users" : " View Active Users"}
             </button>
 
-=======
-            <button className="add-btn" onClick={() => setStatusFilter(statusFilter === "Active" ? "Inactive" : "Active")}>
-              <i className={`fa-solid ${statusFilter === "Active" ? "fa-user-slash" : "fa-user-check"}`}></i>
-              {statusFilter === "Active" ? " View Inactive Users" : " View Active Users"}
-            </button>
->>>>>>> Stashed changes
             <button className="add-btn" onClick={() => setShowModal(true)}>+ Add User</button>
-          </div>
-        </div>
+          </div >
+        </div >
 
         <div className="admin-table-card">
           <table className="admin-user-table">
@@ -385,10 +348,10 @@ const ManageUsers = () => {
               ) : (
                 filteredUsers.map((u, index) => {
                   const isInactive = u.Status === "Inactive";
-<<<<<<< Updated upstream
 
-=======
->>>>>>> Stashed changes
+
+
+
                   return (
                     <tr key={u.id}>
                       <td>{index + 1}</td>
@@ -403,38 +366,40 @@ const ManageUsers = () => {
                       <td className="action-cell">
                         <button className="btn-view" onClick={() => openViewModal(u)}>View</button>
                         <button className="btn-update" onClick={() => openEditModal(u)}>Update</button>
-<<<<<<< Updated upstream
+
                         <button
                           className={isInactive ? "btn-active-toggle" : "btn-delete"}
                           onClick={() => toggleUserStatus(u)}
                         >
-=======
-                        <button className={isInactive ? "btn-active-toggle" : "btn-delete"} onClick={() => toggleUserStatus(u)}>
->>>>>>> Stashed changes
                           {isInactive ? "Activate" : "Deactivate"}
                         </button>
                       </td>
-                    </tr>
+                    </tr >
                   );
                 })
               )}
-            </tbody>
-          </table>
-        </div>
-      </main>
+            </tbody >
+          </table >
+        </div >
+      </main >
 
       {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2 className="modal-title">{isEditMode ? "Edit User" : "Add New User"}</h2>
-            <form className="modal-form" onSubmit={submitAddUser}>
-              <div className="name-row">
-                <div className="input-group">
-                  <label>First Name</label>
-                  <input type="text" name="firstName" required value={formData.firstName} onChange={handleFormChange} />
+      {
+        showModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2 className="modal-title">{isEditMode ? "Edit User" : "Add New User"}</h2>
+              <form className="modal-form" onSubmit={submitAddUser}>
+                <div className="name-row">
+                  <div className="input-group">
+                    <label>First Name</label>
+                    <input type="text" name="firstName" required value={formData.firstName} onChange={handleFormChange} />
+                  </div>
+                  <div className="input-group">
+                    <label>Last Name</label>
+                    <input type="text" name="lastName" required value={formData.lastName} onChange={handleFormChange} />
+                  </div>
                 </div>
-<<<<<<< Updated upstream
 
                 {!isEditMode && (
                   <div className="input-group">
@@ -477,89 +442,56 @@ const ManageUsers = () => {
                       <option value="MD">Managing Director (MD)</option>
                     </select>
                   </div>
-=======
-                <div className="input-group">
-                  <label>Last Name</label>
-                  <input type="text" name="lastName" required value={formData.lastName} onChange={handleFormChange} />
->>>>>>> Stashed changes
                 </div>
-              </div>
 
-              {!isEditMode && (
-                <div className="input-group">
-                  <label>Email</label>
-                  <input type="email" name="email" required value={formData.email} onChange={handleFormChange} />
-                </div>
-              )}
-
-              <div className="password-position-row">
-                {!isEditMode && (
-                  <div className="input-group">
-                    <label>Password</label>
-                    <div className="password-input-wrapper">
-                      <input type={showPassword ? "text" : "password"} name="password" required value={formData.password} readOnly />
-                      <button type="button" className="generate-btn" onClick={generatePassword}>Generate</button>
-                    </div>
+                {(formData.position === 'AP' || formData.position === 'AL') && (
+                  <div className="input-group" style={{ marginTop: "10px" }}>
+                    <label>Reports To (Supervisor)</label>
+                    <select name="reportsTo" value={formData.reportsTo} onChange={handleFormChange} disabled={potentialUplines.length === 0}>
+                      <option value="">{potentialUplines.length === 0 ? "No Supervisor Available" : "-- Select Supervisor --"}</option>
+                      {potentialUplines.map((u) => (
+                        <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.account_type})</option>
+                      ))}
+                    </select>
                   </div>
                 )}
-                <div className="input-group">
-                  <label>Position</label>
-                  <select name="position" value={formData.position} onChange={handleFormChange}>
-                    <option value="Admin">Admin</option>
-                    <option value="MP">Managing Partner (MP)</option>
-                    <option value="AL">Agent Leader (AL)</option>
-                    <option value="AP">Agent Partner (AP)</option>
-                    <option value="MD">Managing Director (MD)</option>
-                  </select>
+
+                {!isEditMode && (
+                  <label className="switch-label">
+                    <input type="checkbox" checked={showPassword} onChange={() => setShowPassword(!showPassword)} />
+                    <span className="switch"></span> Show Password
+                  </label>
+                )}
+
+                {modalError && <p className="modal-error">{modalError}</p>}
+                {successMsg && <p className="modal-success">{successMsg}</p>}
+
+                <div className="modal-buttons">
+                  <button type="button" className="modal-close" onClick={closeModal}>Back</button>
+                  <button type="submit" className="modal-submit" disabled={loading}>{isEditMode ? "Update" : "Create"}</button>
                 </div>
-              </div>
-
-              {(formData.position === 'AP' || formData.position === 'AL') && (
-                <div className="input-group" style={{ marginTop: "10px" }}>
-                  <label>Reports To (Supervisor)</label>
-                  <select name="reportsTo" value={formData.reportsTo} onChange={handleFormChange} disabled={potentialUplines.length === 0}>
-                    <option value="">{potentialUplines.length === 0 ? "No Supervisor Available" : "-- Select Supervisor --"}</option>
-                    {potentialUplines.map((u) => (
-                      <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.account_type})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {!isEditMode && (
-                <label className="switch-label">
-                  <input type="checkbox" checked={showPassword} onChange={() => setShowPassword(!showPassword)} />
-                  <span className="switch"></span> Show Password
-                </label>
-              )}
-
-              {modalError && <p className="modal-error">{modalError}</p>}
-              {successMsg && <p className="modal-success">{successMsg}</p>}
-
-              <div className="modal-buttons">
-                <button type="button" className="modal-close" onClick={closeModal}>Back</button>
-                <button type="submit" className="modal-submit" disabled={loading}>{isEditMode ? "Update" : "Create"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              </form >
+            </div >
+          </div >
+        )
+      }
 
       {/* View Modal */}
-      {showViewModal && viewingUser && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2 className="modal-title">View User Details</h2>
-            <div className="name-row">
-              <div className="input-group"><label>First Name</label><input type="text" value={viewingUser.first_name || ""} readOnly /></div>
-              <div className="input-group"><label>Last Name</label><input type="text" value={viewingUser.last_name || ""} readOnly /></div>
-            </div>
-            <div className="name-row">
-              <div className="input-group"><label>Email</label><input type="email" value={viewingUser.email || ""} readOnly /></div>
-              <div className="input-group"><label>Position</label><input type="text" value={viewingUser.account_type || ""} readOnly /></div>
-            </div>
+      {
+        showViewModal && viewingUser && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2 className="modal-title">View User Details</h2>
+              <div className="name-row">
+                <div className="input-group"><label>First Name</label><input type="text" value={viewingUser.first_name || ""} readOnly /></div>
+                <div className="input-group"><label>Last Name</label><input type="text" value={viewingUser.last_name || ""} readOnly /></div>
+              </div>
+              <div className="name-row">
+                <div className="input-group"><label>Email</label><input type="email" value={viewingUser.email || ""} readOnly /></div>
+                <div className="input-group"><label>Position</label><input type="text" value={viewingUser.account_type || ""} readOnly /></div>
+              </div>
 
-<<<<<<< Updated upstream
+
               <div className="input-group" style={{ marginBottom: '15px' }}>
                 <label>Email App Password</label>
                 <input
@@ -578,38 +510,28 @@ const ManageUsers = () => {
                     {viewingSupervisor ? (
                       <>{viewingSupervisor.first_name} {viewingSupervisor.last_name} <span className="hierarchy-badge">{viewingSupervisor.account_type}</span></>
                     ) : <span>No supervisor assigned</span>}
-=======
-            <div className="hierarchy-section">
-              <h3>Hierarchy</h3>
-              <div className="hierarchy-item">
-                <label className="hierarchy-label">Reports To</label>
-                <div className={`hierarchy-card ${!viewingSupervisor ? 'empty' : ''}`}>
-                  {viewingSupervisor ? (
-                    <>{viewingSupervisor.first_name} {viewingSupervisor.last_name} <span className="hierarchy-badge">{viewingSupervisor.account_type}</span></>
-                  ) : <span>No supervisor assigned</span>}
+                  </div>
+                </div>
+                <div className="hierarchy-item">
+                  <label className="hierarchy-label">Direct Reports ({viewingSubordinates.length})</label>
+                  {viewingSubordinates.length > 0 ? (
+                    <div className="subordinates-list">
+                      {viewingSubordinates.map((sub, idx) => (
+                        <div key={idx} className="subordinate-item">
+                          <span className="subordinate-name">{sub.first_name} {sub.last_name}</span>
+                          <span className="subordinate-badge">{sub.account_type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <div className="hierarchy-card empty">No direct reports found</div>}
                 </div>
               </div>
-              <div className="hierarchy-item">
-                <label className="hierarchy-label">Direct Reports ({viewingSubordinates.length})</label>
-                {viewingSubordinates.length > 0 ? (
-                  <div className="subordinates-list">
-                    {viewingSubordinates.map((sub, idx) => (
-                      <div key={idx} className="subordinate-item">
-                        <span className="subordinate-name">{sub.first_name} {sub.last_name}</span>
-                        <span className="subordinate-badge">{sub.account_type}</span>
-                      </div>
-                    ))}
->>>>>>> Stashed changes
-                  </div>
-                ) : <div className="hierarchy-card empty">No direct reports found</div>}
+              <div className="modal-buttons">
+                <button type="button" className="modal-close" onClick={closeModal}>Close</button>
               </div>
             </div>
-            <div className="modal-buttons">
-              <button type="button" className="modal-close" onClick={closeModal}>Close</button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };
