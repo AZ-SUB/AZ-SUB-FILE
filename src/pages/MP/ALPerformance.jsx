@@ -12,7 +12,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tool
 const ALPerformance = () => {
     const { alPerformance, apPerformance, getAPsByAL } = useMPData();
     const navigate = useNavigate();
-    
+
     // State for filters
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
@@ -24,14 +24,18 @@ const ALPerformance = () => {
         status: 'All',
         search: ''
     });
-    
+
     // State for modals
     const [showAPsModal, setShowAPsModal] = useState(false);
     const [showPolicyModal, setShowPolicyModal] = useState(false);
     const [showStatDetailsModal, setShowStatDetailsModal] = useState(false);
     const [selectedStat, setSelectedStat] = useState(null);
     const [selectedAL, setSelectedAL] = useState(null);
-    
+
+    // State for policy details data
+    const [policyDetailsData, setPolicyDetailsData] = useState(null);
+    const [loadingPolicyDetails, setLoadingPolicyDetails] = useState(false);
+
     // Month names
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const currentYear = new Date().getFullYear();
@@ -75,15 +79,29 @@ const ALPerformance = () => {
     };
 
     // Handle View Policy Details Modal
-    const handleViewPolicyDetails = (al) => {
+    const handleViewPolicyDetails = async (al) => {
         setSelectedAL(al);
         setShowPolicyModal(true);
+
+        // Fetch policy details data
+        setLoadingPolicyDetails(true);
+        try {
+            const response = await fetch(`http://localhost:3000/api/mp/policy-details/${al.id}?year=${appliedFilters.year}`);
+            const result = await response.json();
+            if (result.success) {
+                setPolicyDetailsData(result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching policy details:', error);
+        } finally {
+            setLoadingPolicyDetails(false);
+        }
     };
 
     // Handle View AP Details - Now shows AP details modal instead of navigating
     const handleViewAPDetails = (ap) => {
-        navigate('/mp/ap-performance', { 
-            state: { 
+        navigate('/mp/ap-performance', {
+            state: {
                 selectedAP: ap,
                 selectedMonth: appliedFilters.month,
                 selectedYear: appliedFilters.year
@@ -103,22 +121,22 @@ const ALPerformance = () => {
         if (appliedFilters.status !== 'All' && al.status !== appliedFilters.status) {
             return false;
         }
-        
+
         // Search filter
-        if (appliedFilters.search && 
+        if (appliedFilters.search &&
             !al.name.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
             !al.region.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
             !al.city.toLowerCase().includes(appliedFilters.search.toLowerCase())) {
             return false;
         }
-        
+
         return true;
     });
 
     // Calculate statistics
     const totalALs = filteredALs.length;
     const performingALs = filteredALs.filter(al => al.status === 'PERFORMING').length;
-    const averageActivityRatio = filteredALs.length > 0 ? 
+    const averageActivityRatio = filteredALs.length > 0 ?
         filteredALs.reduce((sum, al) => sum + al.activityRatio, 0) / filteredALs.length : 0;
     const totalANP = filteredALs.reduce((sum, al) => sum + al.totalANP, 0);
     const totalCases = filteredALs.reduce((sum, al) => sum + al.totalCases, 0);
@@ -135,7 +153,7 @@ const ALPerformance = () => {
         const average = aps.filter(ap => getAPPerformanceStatus(ap.monthlyCases) === 'AVERAGE').length;
         const needsImprovement = aps.filter(ap => getAPPerformanceStatus(ap.monthlyCases) === 'NEEDS IMPROVEMENT').length;
         const inactive = aps.filter(ap => ap.monthlyCases === 0).length;
-        
+
         return { total, active, performing, average, needsImprovement, inactive };
     };
 
@@ -147,12 +165,12 @@ const ALPerformance = () => {
             newClients: Math.floor(al.monthlyCases * 0.6),
             conversionRate: 80 + Math.floor(Math.random() * 15)
         };
-        
+
         // Adjust based on selected month/year
         const monthMultiplier = appliedFilters.month === 11 ? 1.3 : appliedFilters.month === 0 ? 0.8 : 1.0;
         const yearMultiplier = appliedFilters.year === 2026 ? 1.2 : appliedFilters.year === 2025 ? 1.1 : 1.0;
         const totalMultiplier = monthMultiplier * yearMultiplier;
-        
+
         return {
             policiesIssued: Math.round(basePerformance.policiesIssued * totalMultiplier),
             anp: Math.round(basePerformance.anp * totalMultiplier),
@@ -163,7 +181,7 @@ const ALPerformance = () => {
 
     // Render stat details based on selected stat
     const renderStatDetails = () => {
-        switch(selectedStat) {
+        switch (selectedStat) {
             case 'totalALs':
                 return (
                     <div>
@@ -224,15 +242,15 @@ const ALPerformance = () => {
                         <div className="info-grid">
                             <div className="info-item">
                                 <span className="info-label">Total ANP:</span>
-                                <span className="info-value">PHP {totalANP.toLocaleString()}</span>
+                                <span className="info-value">₱ {totalANP.toLocaleString()}</span>
                             </div>
                             <div className="info-item">
                                 <span className="info-label">Average per AL:</span>
-                                <span className="info-value">PHP {Math.round(totalANP / totalALs).toLocaleString()}</span>
+                                <span className="info-value">₱ {Math.round(totalANP / totalALs).toLocaleString()}</span>
                             </div>
                             <div className="info-item">
                                 <span className="info-label">Monthly ANP:</span>
-                                <span className="info-value">PHP {filteredALs.reduce((sum, al) => sum + al.monthlyANP, 0).toLocaleString()}</span>
+                                <span className="info-value">₱ {filteredALs.reduce((sum, al) => sum + al.monthlyANP, 0).toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -281,10 +299,10 @@ const ALPerformance = () => {
                         className="mp-search-input"
                     />
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Status</label>
-                    <select 
+                    <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                         className="mp-filter-select"
@@ -294,10 +312,10 @@ const ALPerformance = () => {
                         ))}
                     </select>
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Month</label>
-                    <select 
+                    <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
                         className="mp-filter-select"
@@ -307,10 +325,10 @@ const ALPerformance = () => {
                         ))}
                     </select>
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Year</label>
-                    <select 
+                    <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                         className="mp-filter-select"
@@ -334,11 +352,11 @@ const ALPerformance = () => {
                 </div>
             </div>
 
-            
+
             {/* Clickable Stat Cards with Hover Effect */}
             <div className="dashboard-grid">
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #003781', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalALs')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -349,8 +367,8 @@ const ALPerformance = () => {
                     <div className="stat-subtext">Managing the network</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #28a745', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('performingALs')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -358,23 +376,23 @@ const ALPerformance = () => {
                 >
                     <div className="stat-label">Performing ALs</div>
                     <div className="stat-value">{performingALs}</div>
-                    <div className="stat-subtext">{(totalALs > 0 ? (performingALs/totalALs*100).toFixed(1) : 0)}% of total</div>
+                    <div className="stat-subtext">{(totalALs > 0 ? (performingALs / totalALs * 100).toFixed(1) : 0)}% of total</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #0055b8', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalANP')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                     onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     <div className="stat-label">Total ANP</div>
-                    <div className="stat-value">PHP {totalANP.toLocaleString()}</div>
+                    <div className="stat-value">₱ {totalANP.toLocaleString()}</div>
                     <div className="stat-subtext">Cumulative from ALs</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #f39c12', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalCases')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -382,7 +400,7 @@ const ALPerformance = () => {
                 >
                     <div className="stat-label">Total Cases</div>
                     <div className="stat-value">{totalCases}</div>
-                    <div className="stat-subtext">{(totalALs > 0 ? (totalCases/totalALs).toFixed(0) : 0)} avg per AL</div>
+                    <div className="stat-subtext">{(totalALs > 0 ? (totalCases / totalALs).toFixed(0) : 0)} avg per AL</div>
                 </div>
             </div>
 
@@ -415,7 +433,7 @@ const ALPerformance = () => {
                             {filteredALs.map(al => {
                                 const apSummary = getAPPerformanceSummaryForAL(al.name);
                                 const monthlyPerformance = getAdjustedMonthlyPerformance(al);
-                                
+
                                 return (
                                     <tr key={al.id}>
                                         <td>
@@ -435,13 +453,13 @@ const ALPerformance = () => {
                                         <td>
                                             <div style={{ fontWeight: '600' }}>{apSummary.total}</div>
                                             <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                                {apSummary.active} active ({apSummary.active > 0 ? Math.round((apSummary.active/apSummary.total)*100) : 0}%)
+                                                {apSummary.active} active ({apSummary.active > 0 ? Math.round((apSummary.active / apSummary.total) * 100) : 0}%)
                                             </div>
                                         </td>
                                         <td>
                                             <div className="activity-ratio">
                                                 <div className="ratio-bar">
-                                                    <div 
+                                                    <div
                                                         className="ratio-fill"
                                                         style={{ width: `${al.activityRatio}%` }}
                                                     ></div>
@@ -451,12 +469,12 @@ const ALPerformance = () => {
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: '600' }}>
-                                                PHP {al.totalANP.toLocaleString()}
+                                                ₱ {al.totalANP.toLocaleString()}
                                             </div>
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: '600', color: '#28a745' }}>
-                                                PHP {monthlyPerformance.anp.toLocaleString()}
+                                                ₱ {monthlyPerformance.anp.toLocaleString()}
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#64748b' }}>
                                                 {monthlyPerformance.policiesIssued} policies
@@ -511,7 +529,7 @@ const ALPerformance = () => {
                                     APs under this Agent Leader and their performance
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 className="mp-modal-close"
                                 onClick={() => setShowAPsModal(false)}
                             >
@@ -519,9 +537,9 @@ const ALPerformance = () => {
                             </button>
                         </div>
                         <div className="mp-modal-body">
-                            <div style={{ 
-                                background: '#f8fafc', 
-                                padding: '20px', 
+                            <div style={{
+                                background: '#f8fafc',
+                                padding: '20px',
                                 borderRadius: '12px',
                                 marginBottom: '20px'
                             }}>
@@ -552,7 +570,7 @@ const ALPerformance = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Agent Partners List</h4>
                             <div className="modal-table-responsive">
                                 <table className="performance-table">
@@ -572,7 +590,7 @@ const ALPerformance = () => {
                                         {getAPsByAL(selectedAL.name).map(ap => {
                                             const performanceStatus = getAPPerformanceStatus(ap.monthlyCases);
                                             const isActive = ap.monthlyCases > 0;
-                                            
+
                                             return (
                                                 <tr key={ap.id}>
                                                     <td>
@@ -589,12 +607,12 @@ const ALPerformance = () => {
                                                     </td>
                                                     <td>
                                                         <div style={{ fontWeight: '600' }}>
-                                                            PHP {ap.totalANP.toLocaleString()}
+                                                            ₱ {ap.totalANP.toLocaleString()}
                                                         </div>
                                                     </td>
                                                     <td>
                                                         <div style={{ fontWeight: '600', color: '#28a745' }}>
-                                                            PHP {ap.monthlyANP.toLocaleString()}
+                                                            ₱ {ap.monthlyANP.toLocaleString()}
                                                         </div>
                                                     </td>
                                                     <td>
@@ -603,9 +621,9 @@ const ALPerformance = () => {
                                                     <td>
                                                         <div style={{ fontWeight: '600' }}>{ap.monthlyCases}</div>
                                                         <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                                            {performanceStatus === 'PERFORMING' ? '🎯 Performing' : 
-                                                             performanceStatus === 'AVERAGE' ? '📊 Average' : 
-                                                             ap.monthlyCases === 0 ? '⚫ No policies issued' : '⚠️ Needs Improvement'}
+                                                            {performanceStatus === 'PERFORMING' ? '🎯 Performing' :
+                                                                performanceStatus === 'AVERAGE' ? '📊 Average' :
+                                                                    ap.monthlyCases === 0 ? '⚫ No policies issued' : '⚠️ Needs Improvement'}
                                                         </div>
                                                     </td>
                                                     <td>
@@ -627,7 +645,7 @@ const ALPerformance = () => {
                                     </tbody>
                                 </table>
                             </div>
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     onClick={() => setShowAPsModal(false)}
@@ -653,7 +671,7 @@ const ALPerformance = () => {
                                     Policy distribution and monthly performance for {months[selectedMonth]} {selectedYear}
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 className="mp-modal-close"
                                 onClick={() => setShowPolicyModal(false)}
                             >
@@ -661,72 +679,99 @@ const ALPerformance = () => {
                             </button>
                         </div>
                         <div className="mp-modal-body">
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-                                <div>
-                                    <h3 style={{ marginBottom: '16px', color: '#0f172a' }}>Policy Distribution</h3>
-                                    <div style={{ height: '300px' }}>
-                                        <Bar 
-                                            data={{
-                                                labels: ['Allianz Well', 'Eazy Health', 'Allianz Fundamental Cover', 'AZpire Growth', 'Allianz Secure Pro', 'Single Pay/Optimal'],
-                                                datasets: [{
-                                                    label: 'Policy Count',
-                                                    data: [145, 80, 55, 25, 10, 5],
-                                                    backgroundColor: ['#003781', '#0055b8', '#4d7cff', '#ffc107', '#e74c3c', '#2c3e50'],
-                                                    borderRadius: 6
-                                                }]
-                                            }}
-                                            options={{
-                                                responsive: true,
-                                                maintainAspectRatio: false,
-                                                plugins: {
-                                                    legend: { display: false }
-                                                },
-                                                scales: {
-                                                    y: {
-                                                        beginAtZero: true,
-                                                        ticks: {
-                                                            stepSize: 10
-                                                        }
-                                                    }
-                                                }
-                                            }}
-                                        />
-                                    </div>
+                            {loadingPolicyDetails ? (
+                                <div style={{ textAlign: 'center', padding: '40px' }}>
+                                    <div style={{ fontSize: '16px', color: '#64748b' }}>Loading policy details...</div>
                                 </div>
-                                
-                                <div>
-                                    <h3 style={{ marginBottom: '16px', color: '#0f172a' }}>Monthly Trend - {selectedYear}</h3>
-                                    <div style={{ height: '300px' }}>
-                                        <Bar 
-                                            data={{
-                                                labels: months.map(m => m.substring(0, 3)),
-                                                datasets: [{
-                                                    label: 'Policies Issued',
-                                                    data: [15, 18, 22, 25, 28, 30, 25, 22, 20, 18, 15, 12],
-                                                    backgroundColor: '#003781',
-                                                    borderRadius: 6
-                                                }]
-                                            }}
-                                            options={{
-                                                responsive: true,
-                                                maintainAspectRatio: false,
-                                                plugins: {
-                                                    legend: { display: false }
-                                                },
-                                                scales: {
-                                                    y: {
-                                                        beginAtZero: true,
-                                                        ticks: {
-                                                            stepSize: 5
+                            ) : policyDetailsData ? (
+                                <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                                        <div>
+                                            <h3 style={{ marginBottom: '16px', color: '#0f172a' }}>Policy Distribution</h3>
+                                            <div style={{ height: '300px' }}>
+                                                <Bar
+                                                    data={{
+                                                        labels: policyDetailsData.policyDistribution.map(p => p.policy_name),
+                                                        datasets: [{
+                                                            label: 'Policy Count',
+                                                            data: policyDetailsData.policyDistribution.map(p => p.count),
+                                                            backgroundColor: ['#003781', '#0055b8', '#4d7cff', '#ffc107', '#e74c3c', '#2c3e50'],
+                                                            borderRadius: 6
+                                                        }]
+                                                    }}
+                                                    options={{
+                                                        responsive: true,
+                                                        maintainAspectRatio: false,
+                                                        plugins: {
+                                                            legend: { display: false }
+                                                        },
+                                                        scales: {
+                                                            y: {
+                                                                beginAtZero: true,
+                                                                ticks: {
+                                                                    stepSize: 10
+                                                                }
+                                                            }
                                                         }
-                                                    }
-                                                }
-                                            }}
-                                        />
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                <h3 style={{ margin: 0, color: '#0f172a' }}>Monthly Trend - {appliedFilters.year}</h3>
+                                                <div style={{
+                                                    background: '#e3f2fd',
+                                                    padding: '8px 16px',
+                                                    borderRadius: '8px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px'
+                                                }}>
+                                                    <span style={{ fontSize: '12px', color: '#0055b8', fontWeight: '600' }}>Total Cases:</span>
+                                                    <span style={{ fontSize: '18px', fontWeight: '700', color: '#003781' }}>
+                                                        {policyDetailsData.totalCases}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div style={{ height: '300px' }}>
+                                                <Bar
+                                                    data={{
+                                                        labels: months.map(m => m.substring(0, 3)),
+                                                        datasets: [{
+                                                            label: 'Policies Issued',
+                                                            data: policyDetailsData.monthlyTrend.map(m => m.policiesIssued),
+                                                            backgroundColor: '#003781',
+                                                            borderRadius: 6
+                                                        }]
+                                                    }}
+                                                    options={{
+                                                        responsive: true,
+                                                        maintainAspectRatio: false,
+                                                        plugins: {
+                                                            legend: { display: false }
+                                                        },
+                                                        scales: {
+                                                            y: {
+                                                                beginAtZero: true,
+                                                                ticks: {
+                                                                    stepSize: 5
+                                                                }
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
+                                </>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px' }}>
+                                    <div style={{ fontSize: '16px', color: '#64748b' }}>No policy data available</div>
                                 </div>
-                            </div>
-                            
+                            )}
+
                             <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
                                 <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Policy Statistics</h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
@@ -745,18 +790,20 @@ const ALPerformance = () => {
                                     <div>
                                         <div style={{ fontSize: '12px', color: '#64748b' }}>Monthly ANP</div>
                                         <div style={{ fontSize: '24px', fontWeight: '700', color: '#0055b8' }}>
-                                            PHP {selectedAL.monthlyANP.toLocaleString()}
+                                            ₱ {selectedAL.monthlyANP.toLocaleString()}
                                         </div>
                                     </div>
                                     <div>
                                         <div style={{ fontSize: '12px', color: '#64748b' }}>Most Availed</div>
                                         <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>
-                                            Allianz Well
+                                            {policyDetailsData && policyDetailsData.policyDistribution && policyDetailsData.policyDistribution.length > 0
+                                                ? policyDetailsData.policyDistribution[0].policy_name
+                                                : 'N/A'}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Policy Breakdown</h4>
                             <div className="modal-table-responsive">
                                 <table className="policy-table">
@@ -770,46 +817,47 @@ const ALPerformance = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {[
-                                            { policy_name: 'Allianz Well', category: 'System', count: 145, percentage: 45 },
-                                            { policy_name: 'Eazy Health', category: 'Manual', count: 80, percentage: 25 },
-                                            { policy_name: 'Allianz Fundamental Cover', category: 'Manual', count: 55, percentage: 17 },
-                                            { policy_name: 'AZpire Growth', category: 'System', count: 25, percentage: 8 },
-                                            { policy_name: 'Allianz Secure Pro', category: 'Manual', count: 10, percentage: 3 },
-                                            { policy_name: 'Single Pay/Optimal', category: 'System', count: 5, percentage: 2 }
-                                        ].map((policy, index) => {
-                                            const estimatedANP = Math.floor(policy.count * 50000);
-                                            
-                                            return (
-                                                <tr key={policy.policy_name}>
-                                                    <td>
-                                                        <div style={{ fontWeight: '600' }}>{policy.policy_name}</div>
-                                                    </td>
-                                                    <td>
-                                                        <span className={`category-badge ${policy.category.toLowerCase()}`}>
-                                                            {policy.category}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ fontWeight: '600', textAlign: 'center' }}>{policy.count}</td>
-                                                    <td>
-                                                        <div className="percentage-bar">
-                                                            <div 
-                                                                className="percentage-fill"
-                                                                style={{ width: `${policy.percentage}%` }}
-                                                            ></div>
-                                                            <span className="percentage-value">{policy.percentage}%</span>
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ fontWeight: '600', color: '#28a745' }}>
-                                                        PHP {estimatedANP.toLocaleString()}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                        {policyDetailsData && policyDetailsData.policyDistribution && policyDetailsData.policyDistribution.length > 0 ? (
+                                            policyDetailsData.policyDistribution.map((policy, index) => {
+                                                const estimatedANP = Math.floor(policy.count * 50000);
+
+                                                return (
+                                                    <tr key={policy.policy_name}>
+                                                        <td>
+                                                            <div style={{ fontWeight: '600' }}>{policy.policy_name}</div>
+                                                        </td>
+                                                        <td>
+                                                            <span className="category-badge system">
+                                                                System
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ fontWeight: '600', textAlign: 'center' }}>{policy.count}</td>
+                                                        <td>
+                                                            <div className="percentage-bar">
+                                                                <div
+                                                                    className="percentage-fill"
+                                                                    style={{ width: `${policy.percentage}%` }}
+                                                                ></div>
+                                                                <span className="percentage-value">{policy.percentage}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ fontWeight: '600', color: '#28a745' }}>
+                                                            ₱ {estimatedANP.toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                                                    No policy data available
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     onClick={() => setShowPolicyModal(false)}
@@ -845,7 +893,7 @@ const ALPerformance = () => {
                                     Detailed information for the selected statistic
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 className="mp-modal-close"
                                 onClick={() => setShowStatDetailsModal(false)}
                             >
@@ -854,7 +902,7 @@ const ALPerformance = () => {
                         </div>
                         <div className="mp-modal-body">
                             {renderStatDetails()}
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     onClick={() => setShowStatDetailsModal(false)}

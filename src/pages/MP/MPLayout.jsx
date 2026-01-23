@@ -64,7 +64,7 @@ const MPLayout = ({ children }) => {
                             CAELUM
                         </Link>
                     </div>
-                    
+
                     <div className="sidebar-menu">
                         {mpMenuItems.map((item) => (
                             <Link
@@ -77,7 +77,7 @@ const MPLayout = ({ children }) => {
                             </Link>
                         ))}
                     </div>
-                    
+
                     <div className="sidebar-footer">
                         <div className="mp-user-info">
                             <div className="mp-user-avatar">

@@ -25,13 +25,13 @@ const APPerformance = () => {
         activity: 'All',
         search: ''
     });
-    
+
     // State for modals
     const [showAPDetailsModal, setShowAPDetailsModal] = useState(false);
     const [showStatDetailsModal, setShowStatDetailsModal] = useState(false);
     const [selectedStat, setSelectedStat] = useState(null);
     const [selectedAP, setSelectedAP] = useState(null);
-    
+
     // Month names
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const currentYear = new Date().getFullYear();
@@ -107,7 +107,7 @@ const APPerformance = () => {
                 return false;
             }
         }
-        
+
         // Activity filter
         if (appliedFilters.activity !== 'All') {
             const activityStatus = getAPActivityStatus(ap.monthlyCases);
@@ -115,16 +115,16 @@ const APPerformance = () => {
                 return false;
             }
         }
-        
+
         // Search filter
-        if (appliedFilters.search && 
+        if (appliedFilters.search &&
             !ap.name.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
             !ap.alName.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
             !ap.region.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
             !ap.city.toLowerCase().includes(appliedFilters.search.toLowerCase())) {
             return false;
         }
-        
+
         return true;
     });
 
@@ -138,7 +138,7 @@ const APPerformance = () => {
 
     // Render stat details based on selected stat
     const renderStatDetails = () => {
-        switch(selectedStat) {
+        switch (selectedStat) {
             case 'totalAPs':
                 return (
                     <div>
@@ -159,7 +159,7 @@ const APPerformance = () => {
                             </div>
                             <div className="info-item">
                                 <span className="info-label">Active Rate:</span>
-                                <span className="info-value">{(totalAPs > 0 ? (activeAPs/totalAPs*100).toFixed(1) : 0)}%</span>
+                                <span className="info-value">{(totalAPs > 0 ? (activeAPs / totalAPs * 100).toFixed(1) : 0)}%</span>
                             </div>
                         </div>
                     </div>
@@ -184,7 +184,7 @@ const APPerformance = () => {
                                         <td>{ap.name}</td>
                                         <td>{ap.alName}</td>
                                         <td>{ap.monthlyCases}</td>
-                                        <td>PHP {ap.monthlyANP.toLocaleString()}</td>
+                                        <td>₱ {ap.monthlyANP.toLocaleString()}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -199,15 +199,15 @@ const APPerformance = () => {
                         <div className="info-grid">
                             <div className="info-item">
                                 <span className="info-label">Total ANP:</span>
-                                <span className="info-value">PHP {totalANP.toLocaleString()}</span>
+                                <span className="info-value">₱ {totalANP.toLocaleString()}</span>
                             </div>
                             <div className="info-item">
                                 <span className="info-label">Average per AP:</span>
-                                <span className="info-value">PHP {Math.round(totalANP / totalAPs).toLocaleString()}</span>
+                                <span className="info-value">₱ {Math.round(totalANP / totalAPs).toLocaleString()}</span>
                             </div>
                             <div className="info-item">
                                 <span className="info-label">Monthly ANP:</span>
-                                <span className="info-value">PHP {monthlyANP.toLocaleString()}</span>
+                                <span className="info-value">₱ {monthlyANP.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -256,10 +256,10 @@ const APPerformance = () => {
                         className="mp-search-input"
                     />
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Performance</label>
-                    <select 
+                    <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                         className="mp-filter-select"
@@ -270,10 +270,10 @@ const APPerformance = () => {
                         <option value="NEEDS IMPROVEMENT">Needs Improvement</option>
                     </select>
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Activity</label>
-                    <select 
+                    <select
                         value={activityFilter}
                         onChange={(e) => setActivityFilter(e.target.value)}
                         className="mp-filter-select"
@@ -283,10 +283,10 @@ const APPerformance = () => {
                         <option value="Inactive">Inactive Only</option>
                     </select>
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Month</label>
-                    <select 
+                    <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
                         className="mp-filter-select"
@@ -296,10 +296,10 @@ const APPerformance = () => {
                         ))}
                     </select>
                 </div>
-                
+
                 <div className="filter-group">
                     <label>Year</label>
-                    <select 
+                    <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                         className="mp-filter-select"
@@ -323,11 +323,11 @@ const APPerformance = () => {
                 </div>
             </div>
 
-            
+
             {/* Clickable Stat Cards with Hover Effect */}
             <div className="dashboard-grid">
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #003781', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalAPs')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -338,8 +338,8 @@ const APPerformance = () => {
                     <div className="stat-subtext">In network</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #28a745', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('activeAPs')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -347,23 +347,23 @@ const APPerformance = () => {
                 >
                     <div className="stat-label">Active APs</div>
                     <div className="stat-value">{activeAPs}</div>
-                    <div className="stat-subtext">{(totalAPs > 0 ? (activeAPs/totalAPs*100).toFixed(1) : 0)}% Active Rate</div>
+                    <div className="stat-subtext">{(totalAPs > 0 ? (activeAPs / totalAPs * 100).toFixed(1) : 0)}% Active Rate</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #0055b8', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('totalANP')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                     onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     <div className="stat-label">Total ANP</div>
-                    <div className="stat-value">PHP {totalANP.toLocaleString()}</div>
+                    <div className="stat-value">₱ {totalANP.toLocaleString()}</div>
                     <div className="stat-subtext">Cumulative from APs</div>
                 </div>
 
-                <div 
-                    className="stat-card hover-card" 
+                <div
+                    className="stat-card hover-card"
                     style={{ borderLeft: '4px solid #f39c12', cursor: 'pointer' }}
                     onClick={() => handleStatCardClick('avgMonthlyCases')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
@@ -383,7 +383,7 @@ const APPerformance = () => {
                         <div className="chart-subtitle">Performance levels across all APs</div>
                     </div>
                     <div className="chart-wrapper">
-                        <Doughnut 
+                        <Doughnut
                             data={{
                                 labels: ['PERFORMING', 'AVERAGE', 'NEEDS IMPROVEMENT', 'INACTIVE'],
                                 datasets: [{
@@ -396,13 +396,13 @@ const APPerformance = () => {
                                     backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6c757d']
                                 }]
                             }}
-                            options={{ 
-                                responsive: true, 
+                            options={{
+                                responsive: true,
                                 maintainAspectRatio: false,
                                 plugins: {
                                     legend: { position: 'bottom' }
                                 }
-                            }} 
+                            }}
                         />
                     </div>
                 </div>
@@ -413,7 +413,7 @@ const APPerformance = () => {
                         <div className="chart-subtitle">ANP generated by month</div>
                     </div>
                     <div className="chart-wrapper">
-                        <Bar 
+                        <Bar
                             data={{
                                 labels: months.map(m => m.substring(0, 3)),
                                 datasets: [{
@@ -423,8 +423,8 @@ const APPerformance = () => {
                                     borderRadius: 6
                                 }]
                             }}
-                            options={{ 
-                                responsive: true, 
+                            options={{
+                                responsive: true,
                                 maintainAspectRatio: false,
                                 plugins: {
                                     legend: { display: false }
@@ -433,13 +433,13 @@ const APPerformance = () => {
                                     y: {
                                         beginAtZero: true,
                                         ticks: {
-                                            callback: function(value) {
-                                                return 'PHP ' + value + 'K';
+                                            callback: function (value) {
+                                                return '₱ ' + value;
                                             }
                                         }
                                     }
                                 }
-                            }} 
+                            }}
                         />
                     </div>
                 </div>
@@ -476,7 +476,7 @@ const APPerformance = () => {
                             {filteredAPs.map(ap => {
                                 const performanceStatus = getAPPerformanceStatus(ap.monthlyCases);
                                 const activityStatus = getAPActivityStatus(ap.monthlyCases);
-                                
+
                                 return (
                                     <tr key={ap.id}>
                                         <td>
@@ -512,12 +512,12 @@ const APPerformance = () => {
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: '600' }}>
-                                                PHP {ap.totalANP.toLocaleString()}
+                                                ₱ {ap.totalANP.toLocaleString()}
                                             </div>
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: '600', color: '#28a745' }}>
-                                                PHP {ap.monthlyANP.toLocaleString()}
+                                                ₱ {ap.monthlyANP.toLocaleString()}
                                             </div>
                                         </td>
                                         <td>
@@ -527,8 +527,8 @@ const APPerformance = () => {
                                             <div style={{ fontWeight: '600' }}>{ap.monthlyCases}</div>
                                             <div style={{ fontSize: '12px', color: '#64748b' }}>
                                                 {performanceStatus === 'PERFORMING' ? '🎯 Performing' :
-                                                 performanceStatus === 'AVERAGE' ? '📊 Average' : 
-                                                 ap.monthlyCases === 0 ? '⚫ No policies issued' : '⚠️ Needs Improvement'}
+                                                    performanceStatus === 'AVERAGE' ? '📊 Average' :
+                                                        ap.monthlyCases === 0 ? '⚫ No policies issued' : '⚠️ Needs Improvement'}
                                             </div>
                                         </td>
                                         <td>
@@ -565,7 +565,7 @@ const APPerformance = () => {
                                     Complete information and performance metrics
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 className="mp-modal-close"
                                 onClick={() => setShowAPDetailsModal(false)}
                             >
@@ -573,9 +573,9 @@ const APPerformance = () => {
                             </button>
                         </div>
                         <div className="mp-modal-body">
-                            <div style={{ 
-                                background: '#f8fafc', 
-                                padding: '20px', 
+                            <div style={{
+                                background: '#f8fafc',
+                                padding: '20px',
                                 borderRadius: '12px',
                                 marginBottom: '20px'
                             }}>
@@ -606,12 +606,12 @@ const APPerformance = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Performance Metrics</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                                <div style={{ 
-                                    background: '#e3f2fd', 
-                                    padding: '16px', 
+                                <div style={{
+                                    background: '#e3f2fd',
+                                    padding: '16px',
                                     borderRadius: '8px',
                                     textAlign: 'center'
                                 }}>
@@ -623,23 +623,23 @@ const APPerformance = () => {
                                         {getAPPerformanceStatus(selectedAP.monthlyCases)} Status
                                     </div>
                                 </div>
-                                
-                                <div style={{ 
-                                    background: '#d4edda', 
-                                    padding: '16px', 
+
+                                <div style={{
+                                    background: '#d4edda',
+                                    padding: '16px',
                                     borderRadius: '8px',
                                     textAlign: 'center'
                                 }}>
                                     <div style={{ fontSize: '12px', color: '#155724' }}>Monthly ANP</div>
                                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a' }}>
-                                        PHP {selectedAP.monthlyANP.toLocaleString()}
+                                        ₱ {selectedAP.monthlyANP.toLocaleString()}
                                     </div>
-                                    
+
                                 </div>
-                                
-                                <div style={{ 
-                                    background: '#fff3cd', 
-                                    padding: '16px', 
+
+                                <div style={{
+                                    background: '#fff3cd',
+                                    padding: '16px',
                                     borderRadius: '8px',
                                     textAlign: 'center'
                                 }}>
@@ -652,7 +652,7 @@ const APPerformance = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Additional Information</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                                 <div>
@@ -696,7 +696,7 @@ const APPerformance = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     onClick={() => setShowAPDetailsModal(false)}
@@ -722,7 +722,7 @@ const APPerformance = () => {
                                     Detailed information for the selected statistic
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 className="mp-modal-close"
                                 onClick={() => setShowStatDetailsModal(false)}
                             >
@@ -731,7 +731,7 @@ const APPerformance = () => {
                         </div>
                         <div className="mp-modal-body">
                             {renderStatDetails()}
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     onClick={() => setShowStatDetailsModal(false)}
