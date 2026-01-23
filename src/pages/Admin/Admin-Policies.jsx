@@ -396,55 +396,57 @@ const AdminPolicies = () => {
                                 <h2>{isEditing ? "Edit Policy" : "Add New Policy"}</h2>
                             </div>
                             <form onSubmit={handleSubmit}>
-                                <div className="form-group">
-                                    <label>Policy Name</label>
-                                    <input
-                                        type="text"
-                                        name="policy_name"
-                                        value={formData.policy_name}
-                                        onChange={handleChange}
-                                        placeholder="e.g. Allianz Well"
-                                        required
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Request Type</label>
-                                    <select
-                                        name="request_type"
-                                        value={formData.request_type}
-                                        onChange={handleChange}
-                                    >
-                                        <option value="Manual">Manual</option>
-                                        <option value="System">System</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Form Type</label>
-                                    <select
-                                        name="form_type"
-                                        value={formData.form_type}
-                                        onChange={handleChange}
-                                        required
-                                    >
-                                        <option value="VUL">VUL</option>
-                                        <option value="IHP">IHP</option>
-                                        <option value="TRAD">TRAD</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Agency (Optional)</label>
-                                    <select
-                                        name="agency"
-                                        value={formData.agency}
-                                        onChange={handleChange}
-                                    >
-                                        <option value="">-- No Agency --</option>
-                                        {agencies.map((agency) => (
-                                            <option key={agency.agency_id} value={agency.agency_id}>
-                                                {agency.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                <div className="modal-content">
+                                    <div className="form-group">
+                                        <label>Policy Name</label>
+                                        <input
+                                            type="text"
+                                            name="policy_name"
+                                            value={formData.policy_name}
+                                            onChange={handleChange}
+                                            placeholder="e.g. Allianz Well"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Request Type</label>
+                                        <select
+                                            name="request_type"
+                                            value={formData.request_type}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="Manual">Manual</option>
+                                            <option value="System">System</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Form Type</label>
+                                        <select
+                                            name="form_type"
+                                            value={formData.form_type}
+                                            onChange={handleChange}
+                                            required
+                                        >
+                                            <option value="VUL">VUL</option>
+                                            <option value="IHP">IHP</option>
+                                            <option value="TRAD">TRAD</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Agency (Optional)</label>
+                                        <select
+                                            name="agency"
+                                            value={formData.agency}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="">-- No Agency --</option>
+                                            {agencies.map((agency) => (
+                                                <option key={agency.agency_id} value={agency.agency_id}>
+                                                    {agency.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div className="modal-footer">

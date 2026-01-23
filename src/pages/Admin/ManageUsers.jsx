@@ -12,7 +12,6 @@ const ManageUsers = () => {
   // List Data
   const [users, setUsers] = useState([]);
   const [user, setUser] = useState(null); // Admin session user
-  // --- ADD THESE BLOCKS ---
   const [statusFilter, setStatusFilter] = useState("Active"); // Default to Active
 
   // Derived state to filter the list based on the "Status" column
@@ -158,6 +157,7 @@ const ManageUsers = () => {
           last_name: formData.lastName,
           email: formData.email,
           account_type: formData.position,
+
           Status: "Active", // Explicitly set this here
           app_password: formData.appPassword
         });
@@ -233,6 +233,7 @@ const ManageUsers = () => {
     setViewingSupervisor(null);
     setViewingSubordinates([]);
   };
+
   const toggleUserStatus = async (userItem) => {
     const currentStatus = userItem.Status || "Active";
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -306,11 +307,12 @@ const ManageUsers = () => {
         </div>
       </header>
 
-      {/* Main */}
+      {/* Main Content */}
       <main className={`admin-main-content ${sidebarOpen ? '' : 'expanded'}`}>
         <div className="header-row">
           <h1>Manage Users</h1>
           <div className="header-actions">
+
             {/* Toggle Filter Button */}
             <button
               className="add-btn"
@@ -321,8 +323,8 @@ const ManageUsers = () => {
             </button>
 
             <button className="add-btn" onClick={() => setShowModal(true)}>+ Add User</button>
-          </div>
-        </div>
+          </div >
+        </div >
 
         <div className="admin-table-card">
           <table className="admin-user-table">
@@ -347,6 +349,9 @@ const ManageUsers = () => {
                 filteredUsers.map((u, index) => {
                   const isInactive = u.Status === "Inactive";
 
+
+
+
                   return (
                     <tr key={u.id}>
                       <td>{index + 1}</td>
@@ -361,6 +366,7 @@ const ManageUsers = () => {
                       <td className="action-cell">
                         <button className="btn-view" onClick={() => openViewModal(u)}>View</button>
                         <button className="btn-update" onClick={() => openEditModal(u)}>Update</button>
+
                         <button
                           className={isInactive ? "btn-active-toggle" : "btn-delete"}
                           onClick={() => toggleUserStatus(u)}
@@ -368,22 +374,22 @@ const ManageUsers = () => {
                           {isInactive ? "Activate" : "Deactivate"}
                         </button>
                       </td>
-                    </tr>
+                    </tr >
                   );
                 })
               )}
-            </tbody>
-          </table>
-        </div>
-      </main>
+            </tbody >
+          </table >
+        </div >
+      </main >
 
       {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <h2 className="modal-title">{isEditMode ? "Edit User" : "Add New User"}</h2>
-            <form className="modal-form" onSubmit={submitAddUser}>
-              <div className="modal-content">
+      {
+        showModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2 className="modal-title">{isEditMode ? "Edit User" : "Add New User"}</h2>
+              <form className="modal-form" onSubmit={submitAddUser}>
                 <div className="name-row">
                   <div className="input-group">
                     <label>First Name</label>
@@ -459,23 +465,23 @@ const ManageUsers = () => {
 
                 {modalError && <p className="modal-error">{modalError}</p>}
                 {successMsg && <p className="modal-success">{successMsg}</p>}
-              </div>
 
-              <div className="modal-buttons">
-                <button type="button" className="modal-close" onClick={closeModal}>Back</button>
-                <button type="submit" className="modal-submit" disabled={loading}>{isEditMode ? "Update" : "Create"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                <div className="modal-buttons">
+                  <button type="button" className="modal-close" onClick={closeModal}>Back</button>
+                  <button type="submit" className="modal-submit" disabled={loading}>{isEditMode ? "Update" : "Create"}</button>
+                </div>
+              </form >
+            </div >
+          </div >
+        )
+      }
 
       {/* View Modal */}
-      {showViewModal && viewingUser && (
-        <div className="modal-overlay">
-          <div className="modal-box" style={{ maxWidth: "700px" }}>
-            <h2 className="modal-title">View User Details</h2>
+      {
+        showViewModal && viewingUser && (
+          <div className="modal-overlay">
             <div className="modal-content">
+              <h2 className="modal-title">View User Details</h2>
               <div className="name-row">
                 <div className="input-group"><label>First Name</label><input type="text" value={viewingUser.first_name || ""} readOnly /></div>
                 <div className="input-group"><label>Last Name</label><input type="text" value={viewingUser.last_name || ""} readOnly /></div>
@@ -484,6 +490,7 @@ const ManageUsers = () => {
                 <div className="input-group"><label>Email</label><input type="email" value={viewingUser.email || ""} readOnly /></div>
                 <div className="input-group"><label>Position</label><input type="text" value={viewingUser.account_type || ""} readOnly /></div>
               </div>
+
 
               <div className="input-group" style={{ marginBottom: '15px' }}>
                 <label>Email App Password</label>
@@ -505,7 +512,6 @@ const ManageUsers = () => {
                     ) : <span>No supervisor assigned</span>}
                   </div>
                 </div>
-
                 <div className="hierarchy-item">
                   <label className="hierarchy-label">Direct Reports ({viewingSubordinates.length})</label>
                   {viewingSubordinates.length > 0 ? (
@@ -520,13 +526,12 @@ const ManageUsers = () => {
                   ) : <div className="hierarchy-card empty">No direct reports found</div>}
                 </div>
               </div>
-            </div>
-            <div className="modal-buttons">
-              <button type="button" className="modal-close" onClick={closeModal}>Close</button>
+              <div className="modal-buttons">
+                <button type="button" className="modal-close" onClick={closeModal}>Close</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };
