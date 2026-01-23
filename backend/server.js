@@ -137,7 +137,10 @@ function generateApplicationPDF(data, serialNumber) {
       .text(`Policy Type: ${data.policyType}`)
       .text(`Form Category: ${data.formType}`)
       .text(`Mode of Payment: ${data.modeOfPayment}`)
-      .text(`Policy Date: ${data.policyDate}`).moveDown();
+      .text(`Policy Date: ${data.policyDate}`)
+      .text(`Virtual Selling Process (VSP): ${data.isVSP ? 'Yes' : 'No'}`) 
+      .text(`Underwriting Option: ${data.isGAE ? 'GAE' : 'Standard'}`)
+      .moveDown();
 
 
     if (data.medical) {
@@ -494,13 +497,30 @@ app.post('/api/form-submissions', upload.any(), async (req, res) => {
       const recipients = [ALLIANZ_HO_EMAIL, 'veraniaam@students.nu-fairview.edu.ph'];
       if (existing.client_email) recipients.push(existing.client_email);
 
+      // --- FORMAT EMAIL ---
+      const formattedANP = existing.anp 
+        ? parseFloat(existing.anp).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' }) 
+        : '0.00';
+      
+      const clientNameUpper = existing.client_name ? existing.client_name.toUpperCase() : 'CLIENT';
+
       await mailTransporter.sendMail({
         from: senderEmail,
         to: recipients,
-        subject: `Submission: ${serialNumber} - ${existing.client_name}`,
-        text: `New Application Received.\n\nSerial: ${serialNumber}\nClient: ${existing.client_name}\n\nDocuments attached.`,
+        // Subject: NEW BUSINESS SUBMISSION (SERIAL) CLIENT NAME
+        subject: `NEW BUSINESS SUBMISSION (${serialNumber}) ${clientNameUpper}`,
+        
+        // Body: Formatted as requested
+        text: `Good day!
+
+Please see attached files for my new business submission with this policy no.: ${serialNumber}
+ANP Amount: ${formattedANP}
+Mode of Plan (ex. Quarterly): ${existing.mode_of_payment}
+
+`,
         attachments: emailAttachments
       });
+
       console.log(`Email Sent to: ${recipients.join(', ')}`);
     } catch (err) { console.error("Email failed:", err); }
 
@@ -833,4 +853,3 @@ app.get('/api/performance/all', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
