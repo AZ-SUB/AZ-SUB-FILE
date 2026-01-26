@@ -13,11 +13,23 @@ router.get('/mp/al-performance', async (req, res) => {
         const queryYear = year ? parseInt(year) : now.getFullYear();
         const queryMonth = month !== undefined ? parseInt(month) : now.getMonth();
 
-        // Get all ALs (users with role_code 'AL')
+        // Get all "Leaders" (anyone who has APs reporting to them)
+        // First, get all unique report_to_ids from active hierarchy
+        const { data: hierarchyData, error: hierarchyError } = await supabase
+            .from('user_hierarchy')
+            .select('report_to_id')
+            .eq('is_active', true);
+
+        if (hierarchyError) throw hierarchyError;
+
+        // Extract unique IDs
+        const leaderIds = [...new Set((hierarchyData || []).map(h => h.report_to_id))].filter(id => id);
+
+        // Fetch profiles for these leaders
         const { data: alUsers, error: alError } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, user_roles!inner(role_code)')
-            .eq('user_roles.role_code', 'AL');
+            .in('id', leaderIds);
 
         if (alError) throw alError;
 
@@ -244,12 +256,17 @@ router.get('/mp/dashboard-stats', async (req, res) => {
         const selectedYear = year ? parseInt(year) : now.getFullYear();
         const selectedMonth = month !== undefined ? parseInt(month) : now.getMonth();
 
-        // Get counts of ALs and APs
-        let alQuery = supabase
-            .from('profiles')
-            .select('id, user_roles!inner(role_code)', { count: 'exact' })
-            .eq('user_roles.role_code', 'AL');
+        // Get counts of "Leaders" (anyone managing APs) and APs
+        // Count Leaders via hierarchy
+        const { data: hierarchyData, error: hierarchyError } = await supabase
+            .from('user_hierarchy')
+            .select('report_to_id')
+            .eq('is_active', true);
 
+        if (hierarchyError) throw hierarchyError;
+        const totalLeaderCount = new Set((hierarchyData || []).map(h => h.report_to_id).filter(id => id)).size;
+
+        // Count APs
         let apQuery = supabase
             .from('profiles')
             .select('id, created_at, last_submission_at, user_roles!inner(role_code)', { count: 'exact' })
@@ -273,7 +290,6 @@ router.get('/mp/dashboard-stats', async (req, res) => {
             }
         }
 
-        const { data: alCount } = await alQuery;
         const { data: apProfiles } = await apQuery;
 
         // Calculate active APs (those with submissions in last hour OR in selected month)
@@ -390,7 +406,7 @@ router.get('/mp/dashboard-stats', async (req, res) => {
         res.json({
             success: true,
             data: {
-                totalALs: (alCount || []).length,
+                totalALs: totalLeaderCount,
                 totalAPs: (apProfiles || []).length,
                 activeAPs: activeAPsThisMonth, // Active in selected month
                 activeAPsLastHour, // Active in last hour (for real-time monitoring)

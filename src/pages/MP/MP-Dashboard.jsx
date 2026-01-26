@@ -275,11 +275,11 @@ const MPDashboard = () => {
                             <div style={{ fontSize: '12px', color: '#64748b' }}>Current Value</div>
                             <div style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a' }}>
                                 {selectedStat === 'activityRatio' && `${monthSpecificStats.activityRatio}%`}
-                                {selectedStat === 'totalANP' && `₱ ${Math.round(stats.totalALANP || 0).toLocaleString()}`}
-                                {selectedStat === 'monthlyANP' && `₱ ${monthSpecificStats.monthlyANP.toLocaleString()}`}
-                                {selectedStat === 'totalCases' && monthSpecificStats.totalPolicies.toLocaleString()}
-                                {selectedStat === 'totalALs' && stats.totalALs}
-                                {selectedStat === 'totalAPs' && stats.totalAPs}
+                                {selectedStat === 'totalANP' && `₱ ${Math.round(mpStats.totalANP || 0).toLocaleString()}`}
+                                {selectedStat === 'monthlyANP' && `₱ ${mpStats.monthlyANP.toLocaleString()}`}
+                                {selectedStat === 'totalCases' && mpStats.monthlyCases.toLocaleString()}
+                                {selectedStat === 'totalALs' && mpStats.totalALs}
+                                {selectedStat === 'totalAPs' && mpStats.totalAPs}
                             </div>
                         </div>
                         <div>
@@ -514,7 +514,7 @@ const MPDashboard = () => {
                         <div className="stat-trend up">↑ 2.3%</div>
                     </div>
                     <div className="stat-value">{monthSpecificStats.activityRatio}%</div>
-                    <div className="stat-subtext">{stats.activeAPs} of {stats.totalAPs} APs active</div>
+                    <div className="stat-subtext">{stats.activeAPs} of {mpStats.totalAPs} APs active</div>
                 </div>
 
                 <div
@@ -528,7 +528,7 @@ const MPDashboard = () => {
                         <div className="stat-label">Total ANP</div>
                         <div className="stat-trend up">↑ 12.5%</div>
                     </div>
-                    <div className="stat-value">₱ {(stats.totalALANP / 1000000).toFixed(1)}M</div>
+                    <div className="stat-value">₱ {(mpStats.totalANP / 1000000).toFixed(1)}M</div>
                     <div className="stat-subtext">All-time Annual Premium</div>
                 </div>
 
@@ -543,7 +543,7 @@ const MPDashboard = () => {
                         <div className="stat-label">Monthly ANP</div>
                         <div className="stat-trend up">↑ 8.2%</div>
                     </div>
-                    <div className="stat-value">₱ {monthSpecificStats.monthlyANP.toLocaleString()}</div>
+                    <div className="stat-value">₱ {mpStats.monthlyANP.toLocaleString()}</div>
                     <div className="stat-subtext">{selectedMonthYear} Performance</div>
                 </div>
 
@@ -558,7 +558,7 @@ const MPDashboard = () => {
                         <div className="stat-label">Total Cases</div>
                         <div className="stat-trend up">↑ 5.7%</div>
                     </div>
-                    <div className="stat-value">{monthSpecificStats.totalPolicies.toLocaleString()}</div>
+                    <div className="stat-value">{mpStats.monthlyCases.toLocaleString()}</div>
                     <div className="stat-subtext">Policies Issued</div>
                 </div>
             </div>
@@ -576,8 +576,8 @@ const MPDashboard = () => {
                         <div className="stat-label">Agent Leaders</div>
                         <div className="stat-trend up">↑ 15.4%</div>
                     </div>
-                    <div className="stat-value">{stats.totalALs}</div>
-                    <div className="stat-subtext">{stats.performingALs} Performing ({((stats.performingALs / stats.totalALs) * 100).toFixed(0)}%)</div>
+                    <div className="stat-value">{mpStats.totalALs}</div>
+                    <div className="stat-subtext">{stats.performingALs} Performing ({mpStats.totalALs > 0 ? ((stats.performingALs / mpStats.totalALs) * 100).toFixed(0) : 0}%)</div>
                 </div>
 
                 <div
@@ -591,8 +591,8 @@ const MPDashboard = () => {
                         <div className="stat-label">Agent Partners</div>
                         <div className="stat-trend up">↑ 12.2%</div>
                     </div>
-                    <div className="stat-value">{stats.totalAPs}</div>
-                    <div className="stat-subtext">{stats.activeAPs} Active ({((stats.activeAPs / stats.totalAPs) * 100).toFixed(0)}%)</div>
+                    <div className="stat-value">{mpStats.totalAPs}</div>
+                    <div className="stat-subtext">{stats.activeAPs} Active ({mpStats.totalAPs > 0 ? ((stats.activeAPs / mpStats.totalAPs) * 100).toFixed(0) : 0}%)</div>
                 </div>
 
                 <div
