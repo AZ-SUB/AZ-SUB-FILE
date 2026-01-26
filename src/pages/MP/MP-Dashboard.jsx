@@ -94,8 +94,8 @@ const MPDashboard = () => {
 
         const totalALs = safeALPerformance.length;
         const performingALs = safeALPerformance.filter(al => al.status === 'PERFORMING').length;
-        const totalALANP = safeALPerformance.reduce((sum, al) => sum + (al.totalANP || 0), 0);
-        const totalALPolicies = safeALPerformance.reduce((sum, al) => sum + (al.totalCases || 0), 0);
+        const totalALANP = safeALPerformance.reduce((sum, al) => sum + (al.monthlyANP || 0), 0);
+        const totalALPolicies = safeALPerformance.reduce((sum, al) => sum + (al.monthlyCases || 0), 0);
 
         // Calculate Activity Ratio from filtered view or all data
         // For accurate activity ratio: Active APs / Total APs
@@ -108,9 +108,9 @@ const MPDashboard = () => {
         // Count active APs (those with at least 1 monthly case)
         const activeAPs = safeAPPerformance.filter(ap => (ap.monthlyCases || 0) > 0).length;
 
-        const totalAPANP = safeAPPerformance.reduce((sum, ap) => sum + (ap.totalANP || 0), 0);
-        const totalAPPolicies = safeAPPerformance.reduce((sum, ap) => sum + (ap.totalCases || 0), 0);
-        const avgANPPerAP = totalAPs > 0 ? totalAPANP / totalAPs : 0;
+        const totalAPANP = safeAPPerformance.reduce((sum, ap) => sum + (ap.monthlyANP || 0), 0);
+        const totalAPPolicies = safeAPPerformance.reduce((sum, ap) => sum + (ap.monthlyCases || 0), 0);
+        const avgANPPerAP = activeAPs > 0 ? totalAPANP / activeAPs : 0; // Avg per ACTIVE AP
 
         // Calculate month specific stats from real data
         // Note: The backend currently returns 'monthlyANP' and 'monthlyCases' for the current month.
@@ -171,17 +171,7 @@ const MPDashboard = () => {
             }
         } catch (error) {
             console.error('Error fetching stat history:', error);
-            // Return fallback data to prevent crash
-            return {
-                title: 'Statistic History',
-                description: 'Historical data for this statistic',
-                currentValue: 0,
-                yearlyChange: 0,
-                trend: 'stable',
-                monthlyData: [],
-                unit: '',
-                prefix: ''
-            };
+            return null;
         } finally {
             setLoadingStatHistory(false);
         }
@@ -198,24 +188,10 @@ const MPDashboard = () => {
             );
         }
 
-        // Sort by monthly ANP (with month/year adjustment)
+        // Sort by monthly ANP (descending)
         return filteredALs
-            .sort((a, b) => {
-                // Adjust ANP based on month/year
-                const aAdjusted = adjustANPForMonth(a.monthlyANP, appliedFilters.month, appliedFilters.year);
-                const bAdjusted = adjustANPForMonth(b.monthlyANP, appliedFilters.month, appliedFilters.year);
-                return bAdjusted - aAdjusted;
-            })
+            .sort((a, b) => b.monthlyANP - a.monthlyANP)
             .slice(0, 5);
-    };
-
-    // Adjust ANP based on month/year
-    const adjustANPForMonth = (baseANP, month, year) => {
-        // Simple adjustment based on month
-        const monthAdjustments = [1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.2, 1.15, 1.1, 1.05, 1.0, 0.95];
-        const yearMultiplier = year === 2026 ? 1.2 : year === 2025 ? 1.1 : 1.0;
-
-        return baseANP * monthAdjustments[month] * yearMultiplier;
     };
 
     // Handle View APs Modal
@@ -265,10 +241,18 @@ const MPDashboard = () => {
         const { monthSpecificStats } = stats;
         const currentMonth = months[appliedFilters.month];
 
-        if (!currentHistoryData) {
+        if (loadingStatHistory) {
             return (
                 <div style={{ textAlign: 'center', padding: '40px' }}>
                     <div style={{ fontSize: '16px', color: '#64748b' }}>Loading statistics history...</div>
+                </div>
+            );
+        }
+
+        if (!currentHistoryData) {
+            return (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                    <div style={{ fontSize: '16px', color: '#dc3545' }}>Failed to load history data.</div>
                 </div>
             );
         }
@@ -291,11 +275,11 @@ const MPDashboard = () => {
                             <div style={{ fontSize: '12px', color: '#64748b' }}>Current Value</div>
                             <div style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a' }}>
                                 {selectedStat === 'activityRatio' && `${monthSpecificStats.activityRatio}%`}
-                                {selectedStat === 'totalANP' && `₱ ${(stats.totalALANP / 1000000).toFixed(1)}M`}
-                                {selectedStat === 'monthlyANP' && `₱ ${monthSpecificStats.monthlyANP.toLocaleString()}`}
-                                {selectedStat === 'totalCases' && monthSpecificStats.totalPolicies.toLocaleString()}
-                                {selectedStat === 'totalALs' && stats.totalALs}
-                                {selectedStat === 'totalAPs' && stats.totalAPs}
+                                {selectedStat === 'totalANP' && `₱ ${Math.round(mpStats.totalANP || 0).toLocaleString()}`}
+                                {selectedStat === 'monthlyANP' && `₱ ${mpStats.monthlyANP.toLocaleString()}`}
+                                {selectedStat === 'totalCases' && mpStats.monthlyCases.toLocaleString()}
+                                {selectedStat === 'totalALs' && mpStats.totalALs}
+                                {selectedStat === 'totalAPs' && mpStats.totalAPs}
                             </div>
                         </div>
                         <div>
@@ -530,7 +514,7 @@ const MPDashboard = () => {
                         <div className="stat-trend up">↑ 2.3%</div>
                     </div>
                     <div className="stat-value">{monthSpecificStats.activityRatio}%</div>
-                    <div className="stat-subtext">{stats.activeAPs} of {stats.totalAPs} APs active</div>
+                    <div className="stat-subtext">{stats.activeAPs} of {mpStats.totalAPs} APs active</div>
                 </div>
 
                 <div
@@ -544,7 +528,7 @@ const MPDashboard = () => {
                         <div className="stat-label">Total ANP</div>
                         <div className="stat-trend up">↑ 12.5%</div>
                     </div>
-                    <div className="stat-value">₱ {(stats.totalALANP / 1000000).toFixed(1)}M</div>
+                    <div className="stat-value">₱ {(mpStats.totalANP / 1000000).toFixed(1)}M</div>
                     <div className="stat-subtext">All-time Annual Premium</div>
                 </div>
 
@@ -559,7 +543,7 @@ const MPDashboard = () => {
                         <div className="stat-label">Monthly ANP</div>
                         <div className="stat-trend up">↑ 8.2%</div>
                     </div>
-                    <div className="stat-value">₱ {monthSpecificStats.monthlyANP.toLocaleString()}</div>
+                    <div className="stat-value">₱ {mpStats.monthlyANP.toLocaleString()}</div>
                     <div className="stat-subtext">{selectedMonthYear} Performance</div>
                 </div>
 
@@ -574,7 +558,7 @@ const MPDashboard = () => {
                         <div className="stat-label">Total Cases</div>
                         <div className="stat-trend up">↑ 5.7%</div>
                     </div>
-                    <div className="stat-value">{monthSpecificStats.totalPolicies.toLocaleString()}</div>
+                    <div className="stat-value">{mpStats.monthlyCases.toLocaleString()}</div>
                     <div className="stat-subtext">Policies Issued</div>
                 </div>
             </div>
@@ -592,8 +576,8 @@ const MPDashboard = () => {
                         <div className="stat-label">Agent Leaders</div>
                         <div className="stat-trend up">↑ 15.4%</div>
                     </div>
-                    <div className="stat-value">{stats.totalALs}</div>
-                    <div className="stat-subtext">{stats.performingALs} Performing ({((stats.performingALs / stats.totalALs) * 100).toFixed(0)}%)</div>
+                    <div className="stat-value">{mpStats.totalALs}</div>
+                    <div className="stat-subtext">{stats.performingALs} Performing ({mpStats.totalALs > 0 ? ((stats.performingALs / mpStats.totalALs) * 100).toFixed(0) : 0}%)</div>
                 </div>
 
                 <div
@@ -607,8 +591,8 @@ const MPDashboard = () => {
                         <div className="stat-label">Agent Partners</div>
                         <div className="stat-trend up">↑ 12.2%</div>
                     </div>
-                    <div className="stat-value">{stats.totalAPs}</div>
-                    <div className="stat-subtext">{stats.activeAPs} Active ({((stats.activeAPs / stats.totalAPs) * 100).toFixed(0)}%)</div>
+                    <div className="stat-value">{mpStats.totalAPs}</div>
+                    <div className="stat-subtext">{stats.activeAPs} Active ({mpStats.totalAPs > 0 ? ((stats.activeAPs / mpStats.totalAPs) * 100).toFixed(0) : 0}%)</div>
                 </div>
 
                 <div
@@ -638,7 +622,7 @@ const MPDashboard = () => {
                         <div className="stat-trend up">↑ 8.7%</div>
                     </div>
                     <div className="stat-value">₱ {stats.avgANPPerAP.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                    <div className="stat-subtext">Per Active Partner</div>
+                    <div className="stat-subtext">Per Active Partner (Selected)</div>
                 </div>
             </div>
 
@@ -738,8 +722,6 @@ const MPDashboard = () => {
                         </thead>
                         <tbody>
                             {topALs.map((al, index) => {
-                                const adjustedANP = adjustANPForMonth(al.monthlyANP, appliedFilters.month, appliedFilters.year);
-
                                 return (
                                     <tr key={al.id}>
                                         <td>
@@ -766,10 +748,10 @@ const MPDashboard = () => {
 
                                         <td>
                                             <div style={{ fontWeight: '600', color: '#0f172a' }}>
-                                                ₱ {adjustedANP.toLocaleString()}
+                                                ₱ {al.monthlyANP.toLocaleString()}
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                                {al.monthlyANP.toLocaleString()} base
+                                                Base ANP
                                             </div>
                                         </td>
                                         <td>

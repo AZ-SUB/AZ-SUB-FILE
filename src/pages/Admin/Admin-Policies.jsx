@@ -11,6 +11,7 @@ const AdminPolicies = () => {
     const [user, setUser] = useState(null);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [viewArchived, setViewArchived] = useState(false); // New State
 
     // Policies Data
     const [policies, setPolicies] = useState([]);
@@ -229,7 +230,9 @@ const AdminPolicies = () => {
 
     // Delete Policy (Optional, be careful with FKs)
     // const handleDelete = async (id) => { ... }
-
+    const filteredPolicies = policies.filter(policy => 
+        viewArchived ? !policy.active_status : policy.active_status
+    );
     const logout = async () => {
         await supabase.auth.signOut();
         navigate("/");
@@ -307,11 +310,22 @@ const AdminPolicies = () => {
                 <div className="policies-container">
                     <div className="policies-header">
                         <h2 className="policies-title">Policy Management</h2>
-                        <button className="add-policy-btn" onClick={openAddModal}>
-                            <i className="fa-solid fa-plus"></i> Add New Policy
-                        </button>
-                    </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            {/* NEW BUTTON: View Archived/Active */}
+                            <button 
+                                className="add-policy-btn" 
+                                onClick={() => setViewArchived(!viewArchived)}
+                                style={{ backgroundColor: viewArchived ? '#003266' : '#003266' }} 
+                            >
+                                <i className={`fa-solid ${viewArchived ? 'fa-list-check' : 'fa-box-archive'}`}></i>
+                                {viewArchived ? " View Active" : " View Archived"}
+                            </button>
 
+                            <button className="add-policy-btn" onClick={openAddModal}>
+                                <i className="fa-solid fa-plus"></i> Add New Policy
+                            </button>
+                    </div>
+</div>
                     {loading ? (
                         <p className="loader">Loading policies...</p>
                     ) : (
@@ -327,135 +341,113 @@ const AdminPolicies = () => {
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {policies.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="6">No policies found.</td>
-                                        </tr>
-                                    ) : (
-                                        policies.map((policy, index) => {
-                                            // Helper to get agency name safely
-                                            const getAgencyName = () => {
-                                                if (policy.agency_details?.name) return policy.agency_details.name;
-                                                // Fallback: finding in agencies list
-                                                const found = agencies.find(a => a.agency_id === policy.agency);
-                                                return found ? found.name : 'No Agency';
-                                            };
+<tbody>
+    {/* Use filteredPolicies instead of policies to allow the toggle to work */}
+    {filteredPolicies.length === 0 ? (
+        <tr>
+            <td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                {viewArchived 
+                    ? "No archived policies found." 
+                    : "No active policies found."}
+            </td>
+        </tr>
+    ) : (
+        filteredPolicies.map((policy) => {
+            // Helper to get agency name safely
+            const getAgencyName = () => {
+                if (policy.agency_details?.name) return policy.agency_details.name;
+                
+                // Fallback: finding in agencies list if the join fails
+                const found = agencies.find(a => a.agency_id === policy.agency);
+                return found ? found.name : 'No Agency';
+            };
 
-                                            return (
-                                                <tr key={policy.policy_id}>
-                                                    <td>{policy.policy_name}</td>
-                                                    <td>
-                                                        <span className="policy-type-badge">{policy.form_type || 'N/A'}</span>
-                                                    </td>
-                                                    <td>
-                                                        {toTitleCase(policy.request_type) || '-'}
-                                                    </td>
-                                                    <td>
-                                                        <span className="agency-badge">{getAgencyName()}</span>
-                                                    </td>
-                                                    <td>
-                                                        <span className={`status-badge ${policy.active_status ? 'status-active' : 'status-inactive'}`}>
-                                                            {policy.active_status ? 'Active' : 'Archived'}
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        <div className="policy-actions">
-                                                            <button
-                                                                className={`toggle-btn ${policy.active_status ? 'btn-deactivate' : 'btn-activate'}`}
-                                                                title={policy.active_status ? 'Archive Policy' : 'Restore Policy'}
-                                                                onClick={() => openConfirmModal(policy)}
-                                                            >
-                                                                <i className={`fa-solid ${policy.active_status ? 'fa-box-archive' : 'fa-rotate-left'}`}></i>
-                                                                {policy.active_status ? 'Archive' : 'Restore'}
-                                                            </button>
-                                                            <button
-                                                                className="edit-btn"
-                                                                title="Edit"
-                                                                onClick={() => openEditModal(policy)}
-                                                            >
-                                                                <i className="fa-solid fa-pen"></i>
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
+            return (
+                <tr key={policy.policy_id}>
+                    <td>{policy.policy_name}</td>
+                    <td>
+                        <span className="policy-type-badge">{policy.form_type || 'N/A'}</span>
+                    </td>
+                    <td>
+                        {toTitleCase(policy.request_type) || '-'}
+                    </td>
+                    <td>
+                        <span className="agency-badge">{getAgencyName()}</span>
+                    </td>
+                    <td>
+                        <span className={`status-badge ${policy.active_status ? 'status-active' : 'status-inactive'}`}>
+                            {policy.active_status ? 'Active' : 'Archived'}
+                        </span>
+                    </td>
+                    <td>
+                        <div className="policy-actions">
+                            <button
+                                className={`toggle-btn ${policy.active_status ? 'btn-deactivate' : 'btn-activate'}`}
+                                title={policy.active_status ? 'Archive Policy' : 'Restore Policy'}
+                                onClick={() => openConfirmModal(policy)}
+                            >
+                                <i className={`fa-solid ${policy.active_status ? 'fa-box-archive' : 'fa-rotate-left'}`}></i>
+                                {policy.active_status ? 'Archive' : 'Restore'}
+                            </button>
+                            <button
+                                className="edit-btn"
+                                title="Edit"
+                                onClick={() => openEditModal(policy)}
+                            >
+                                <i className="fa-solid fa-pen"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            );
+        })
+    )}
+</tbody>
                             </table>
                         </div>
                     )}
                 </div>
 
                 {/* MODAL */}
+{/* ADD/EDIT MODAL */}
                 {showModal && (
                     <div className="modal-overlay">
-                        <div className="policy-modal">
-                            <div className="modal-header">
-                                <h2>{isEditing ? "Edit Policy" : "Add New Policy"}</h2>
-                            </div>
-                            <form onSubmit={handleSubmit}>
-                                <div className="modal-content">
-                                    <div className="form-group">
+                        <div className="modal-content">
+                            <div className="modal-title">{isEditing ? "Edit Policy" : "Add New Policy"}</div>
+                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                                <div className="modal-form">
+                                    <div className="input-group">
                                         <label>Policy Name</label>
-                                        <input
-                                            type="text"
-                                            name="policy_name"
-                                            value={formData.policy_name}
-                                            onChange={handleChange}
-                                            placeholder="e.g. Allianz Well"
-                                            required
-                                        />
+                                        <input name="policy_name" value={formData.policy_name} onChange={handleChange} required />
                                     </div>
-                                    <div className="form-group">
-                                        <label>Request Type</label>
-                                        <select
-                                            name="request_type"
-                                            value={formData.request_type}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="Manual">Manual</option>
-                                            <option value="System">System</option>
-                                        </select>
+                                    <div className="name-row">
+                                        <div className="input-group">
+                                            <label>Request Type</label>
+                                            <select name="request_type" value={formData.request_type} onChange={handleChange}>
+                                                <option value="Manual">Manual</option>
+                                                <option value="System">System</option>
+                                            </select>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>Form Type</label>
+                                            <select name="form_type" value={formData.form_type} onChange={handleChange} required>
+                                                <option value="VUL">VUL</option>
+                                                <option value="IHP">IHP</option>
+                                                <option value="TRAD">TRAD</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                    <div className="form-group">
-                                        <label>Form Type</label>
-                                        <select
-                                            name="form_type"
-                                            value={formData.form_type}
-                                            onChange={handleChange}
-                                            required
-                                        >
-                                            <option value="VUL">VUL</option>
-                                            <option value="IHP">IHP</option>
-                                            <option value="TRAD">TRAD</option>
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Agency (Optional)</label>
-                                        <select
-                                            name="agency"
-                                            value={formData.agency}
-                                            onChange={handleChange}
-                                        >
+                                    <div className="input-group">
+                                        <label>Agency</label>
+                                        <select name="agency" value={formData.agency} onChange={handleChange}>
                                             <option value="">-- No Agency --</option>
-                                            {agencies.map((agency) => (
-                                                <option key={agency.agency_id} value={agency.agency_id}>
-                                                    {agency.name}
-                                                </option>
-                                            ))}
+                                            {agencies.map(a => <option key={a.agency_id} value={a.agency_id}>{a.name}</option>)}
                                         </select>
                                     </div>
                                 </div>
-
-                                <div className="modal-footer">
-                                    <button type="button" className="cancel-btn" onClick={() => setShowModal(false)}>
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="submit-btn" disabled={submitting}>
-                                        {submitting ? "Saving..." : "Save Policy"}
-                                    </button>
+                                <div className="modal-buttons">
+                                    <button type="button" className="modal-close" onClick={() => setShowModal(false)}>Cancel</button>
+                                    <button type="submit" className="modal-submit" disabled={submitting}>Save Policy</button>
                                 </div>
                             </form>
                         </div>
@@ -465,39 +457,25 @@ const AdminPolicies = () => {
                 {/* CONFIRMATION MODAL */}
                 {showConfirmModal && policyToToggle && (
                     <div className="modal-overlay">
-                        <div className="confirm-modal">
-                            <div className="modal-header">
-                                <h2>Confirm Action</h2>
+                        <div className="modal-content" style={{ maxWidth: '450px' }}>
+                            <div className="modal-title">Confirm Action</div>
+                            <div className="modal-form" style={{ textAlign: 'center' }}>
+                                <p>Are you sure you want to <strong>{policyToToggle.active_status ? 'archive' : 'restore'}</strong>:</p>
+                                <h3 style={{ marginTop: '10px', color: '#003266' }}>"{policyToToggle.policy_name}"</h3>
                             </div>
-                            <div className="confirm-content">
-                                <p>
-                                    Are you sure you want to <strong>{policyToToggle.active_status ? 'archive' : 'restore'}</strong> the policy:
-                                </p>
-                                <p className="policy-name-highlight">"{policyToToggle.policy_name}"</p>
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    type="button"
-                                    className="cancel-btn"
-                                    onClick={() => {
-                                        setShowConfirmModal(false);
-                                        setPolicyToToggle(null);
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`confirm-btn ${policyToToggle.active_status ? 'btn-danger' : 'btn-success'}`}
+                            <div className="modal-buttons">
+                                <button type="button" className="modal-close" onClick={() => setShowConfirmModal(false)}>Cancel</button>
+                                <button 
+                                    type="button" 
+                                    className={policyToToggle.active_status ? "btn-delete" : "btn-active-toggle"}
                                     onClick={confirmToggleStatus}
                                 >
-                                    {policyToToggle.active_status ? 'Archive' : 'Restore'}
+                                    Confirm
                                 </button>
                             </div>
                         </div>
                     </div>
                 )}
-
             </main>
         </div>
     );

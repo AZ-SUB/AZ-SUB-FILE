@@ -190,6 +190,33 @@ const DashboardPage = () => {
         }]
     };
 
+    // --- NEW: Chart Options for Bar Chart ---
+    const barChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false // Hide legend since there's only one color
+            }
+        },
+        scales: {
+            x: {
+                grid: {
+                    display: false // Remove vertical grid lines
+                }
+            },
+            y: {
+                grid: {
+                    display: false // Remove horizontal grid lines
+                },
+                ticks: {
+                    stepSize: 1, // Force integer steps (remove decimals)
+                    precision: 0 // Ensure no decimal points
+                }
+            }
+        }
+    };
+
     const formatMonthKey = (key) => {
         if (!key) return '';
         const [year, month] = key.split('-');
@@ -257,7 +284,7 @@ const DashboardPage = () => {
                         <div className="stat-label" style={{ color: '#0055b8' }}>Tools</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <span style={{ fontSize: '32px' }}></span>
+                        <span style={{ fontSize: '32px' }}>📅</span>
                         <div>
                             <div className="stat-value" style={{ fontSize: '18px', marginBottom: '0' }}>Calendar</div>
                             <div className="stat-subtext">Schedule & Actions</div>
@@ -301,7 +328,8 @@ const DashboardPage = () => {
                 <div className="chart-container">
                     <div className="chart-title">Most Availed Policies</div>
                     <div className="chart-wrapper">
-                        <Bar data={policyData} options={{ responsive: true, maintainAspectRatio: false }} />
+                        {/* UPDATED: Applied new options to remove grid and decimals */}
+                        <Bar data={policyData} options={barChartOptions} />
                     </div>
                 </div>
             </div>
@@ -434,16 +462,16 @@ const DashboardPage = () => {
                                         <div className="widget-title">Quick Actions</div>
                                         <div className="quick-actions">
                                             <div className="quick-action-btn" onClick={() => { setShowCalendarModal(false); navigate('/monitoring'); }}>
-                                                <span style={{ fontSize: '24px' }}></span> New Request
+                                                <span style={{ fontSize: '24px' }}>📝</span> New Request
                                             </div>
                                             <div className="quick-action-btn" onClick={() => { setShowCalendarModal(false); navigate('/submission'); }}>
-                                                <span style={{ fontSize: '24px' }}></span> Submit Docs
+                                                <span style={{ fontSize: '24px' }}>📂</span> Submit Docs
                                             </div>
                                             <div className="quick-action-btn" onClick={() => { setShowCalendarModal(false); navigate('/customers'); }}>
-                                                <span style={{ fontSize: '24px' }}></span> Profiles
+                                                <span style={{ fontSize: '24px' }}>👥</span> Profiles
                                             </div>
                                             <div className="quick-action-btn" onClick={() => { setShowCalendarModal(false); navigate('/doc-history'); }}>
-                                                <span style={{ fontSize: '24px' }}></span> History
+                                                <span style={{ fontSize: '24px' }}>📜</span> History
                                             </div>
                                         </div>
                                     </div>

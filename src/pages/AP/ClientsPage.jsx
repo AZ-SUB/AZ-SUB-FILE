@@ -574,7 +574,7 @@ const ClientsPage = () => {
 
                             {/* 2. ATTACHMENTS LIST */}
                             <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                                梼 Attached Files
+                                 Attached Files
                             </h3>
                             <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                                 {selectedPolicy.attachments && selectedPolicy.attachments.length > 0 ? (
@@ -587,7 +587,7 @@ const ClientsPage = () => {
                                                     rel="noopener noreferrer"
                                                     style={{ textDecoration: 'none', color: '#007bff', fontWeight: 500, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
                                                 >
-                                                    塘 {file.fileName || 'Document'}
+                                                     {file.fileName || 'Document'}
                                                 </a>
                                                 <span style={{ fontSize: '11px', color: '#999' }}>
                                                     {(file.fileSize / 1024).toFixed(0)} KB
@@ -603,7 +603,7 @@ const ClientsPage = () => {
 
                             {/* 3. PAYMENT HISTORY (ADDED) */}
                             <h3 style={{ marginTop: '25px', marginBottom: '10px', fontSize: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                                諜 Payment History
+                                 Payment History
                             </h3>
                             <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
