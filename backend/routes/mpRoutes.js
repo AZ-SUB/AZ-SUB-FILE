@@ -39,9 +39,11 @@ router.get('/mp/al-performance', async (req, res) => {
                 .select('*, profiles(first_name, last_name)');
 
             if (apIds.length > 0) {
-                submissionsQuery = submissionsQuery.in('profile_id', apIds);
+                // Include AL and their APs
+                const teamIds = [al.id, ...apIds];
+                submissionsQuery = submissionsQuery.in('profile_id', teamIds);
             } else {
-                // No APs, skip this AL or show with 0 data
+                // No APs, check AL's own sales
                 submissionsQuery = submissionsQuery.eq('profile_id', al.id);
             }
 
@@ -300,7 +302,8 @@ router.get('/mp/dashboard-stats', async (req, res) => {
 
             const apIds = (apHierarchy || []).map(h => h.user_id);
             if (apIds.length > 0) {
-                submissionsQuery = submissionsQuery.in('profile_id', apIds);
+                const teamIds = [alId, ...apIds];
+                submissionsQuery = submissionsQuery.in('profile_id', teamIds);
             } else {
                 submissionsQuery = submissionsQuery.eq('profile_id', alId);
             }
@@ -539,7 +542,7 @@ router.get('/mp/monthly-history', async (req, res) => {
                     cumulativeSubs.forEach(s => {
                         cumANP += parseFloat(s.premium_paid) || 0;
                     });
-                    value = Math.round((baseANP + cumANP) / 1000000 * 10) / 10; // In millions
+                    value = Math.round(baseANP + cumANP);
 
                     let cumPrevMonthANP = 0;
                     const cumulativePrevMonth = (currentYearSubs || []).filter(s => {
@@ -549,7 +552,7 @@ router.get('/mp/monthly-history', async (req, res) => {
                     cumulativePrevMonth.forEach(s => {
                         cumPrevMonthANP += parseFloat(s.premium_paid) || 0;
                     });
-                    prevMonthValue = Math.round((baseANP + cumPrevMonthANP) / 1000000 * 10) / 10;
+                    prevMonthValue = Math.round(baseANP + cumPrevMonthANP);
 
                     let cumPrevYearANP = 0;
                     const cumulativePrevYear = (previousYearSubs || []).filter(s => {
@@ -559,7 +562,7 @@ router.get('/mp/monthly-history', async (req, res) => {
                     cumulativePrevYear.forEach(s => {
                         cumPrevYearANP += parseFloat(s.premium_paid) || 0;
                     });
-                    prevYearSameMonthValue = Math.round((prevBaseANP + cumPrevYearANP) / 1000000 * 10) / 10;
+                    prevYearSameMonthValue = Math.round(prevBaseANP + cumPrevYearANP);
                     break;
 
                 case 'monthlyANP':
@@ -568,21 +571,21 @@ router.get('/mp/monthly-history', async (req, res) => {
                         const totalANP = parseFloat(s.premium_paid) || 0;
                         mANP += totalANP / 12;
                     });
-                    value = Math.round(mANP / 1000);
+                    value = Math.round(mANP);
 
                     let mPrevMonthANP = 0;
                     previousMonthSubs.forEach(s => {
                         const totalANP = parseFloat(s.premium_paid) || 0;
                         mPrevMonthANP += totalANP / 12;
                     });
-                    prevMonthValue = Math.round(mPrevMonthANP / 1000);
+                    prevMonthValue = Math.round(mPrevMonthANP);
 
                     let mPrevYearANP = 0;
                     prevYearSameMonthSubs.forEach(s => {
                         const totalANP = parseFloat(s.premium_paid) || 0;
                         mPrevYearANP += totalANP / 12;
                     });
-                    prevYearSameMonthValue = Math.round(mPrevYearANP / 1000);
+                    prevYearSameMonthValue = Math.round(mPrevYearANP);
                     break;
 
                 case 'totalCases':
@@ -670,7 +673,7 @@ router.get('/mp/monthly-history', async (req, res) => {
                 cumulativePrevYearForSelected.forEach(s => {
                     cumPrevYearANPSelected += parseFloat(s.premium_paid) || 0;
                 });
-                previousYearValueForSelectedMonth = Math.round((prevBaseANP + cumPrevYearANPSelected) / 1000000 * 10) / 10;
+                previousYearValueForSelectedMonth = Math.round(prevBaseANP + cumPrevYearANPSelected);
                 break;
             case 'monthlyANP':
                 let mPrevYearANP = 0;
@@ -705,8 +708,8 @@ router.get('/mp/monthly-history', async (req, res) => {
 
         const metadata = {
             activityRatio: { title: 'Activity Ratio History', description: 'Monthly activity ratio trend', unit: '%', prefix: '' },
-            totalANP: { title: 'Total ANP History', description: 'Cumulative Annual Premium growth', unit: 'M ₱', prefix: '₱ ' },
-            monthlyANP: { title: 'Monthly ANP History', description: 'Monthly ANP performance trend', unit: 'K ₱', prefix: '₱ ' },
+            totalANP: { title: 'Total ANP History', description: 'Cumulative Annual Premium growth', unit: '', prefix: '₱ ' },
+            monthlyANP: { title: 'Monthly ANP History', description: 'Monthly ANP performance trend', unit: '', prefix: '₱ ' },
             totalCases: { title: 'Total Cases History', description: 'Total policies issued trend', unit: '', prefix: '' },
             totalALs: { title: 'Agent Leaders History', description: 'Number of Agent Leaders', unit: 'ALs', prefix: '' },
             totalAPs: { title: 'Agent Partners History', description: 'Number of Agent Partners', unit: 'APs', prefix: '' }
@@ -753,7 +756,8 @@ router.get('/mp/policy-details/:alId', async (req, res) => {
             .eq('status', 'Issued');
 
         if (apIds.length > 0) {
-            submissionsQuery = submissionsQuery.in('profile_id', apIds);
+            const teamIds = [alId, ...apIds];
+            submissionsQuery = submissionsQuery.in('profile_id', teamIds);
         } else {
             submissionsQuery = submissionsQuery.eq('profile_id', alId);
         }

@@ -5,14 +5,14 @@ export const useMPData = () => {
     const [mpStats, setMpStats] = useState(null);
     const [alPerformance, setAlPerformance] = useState([]);
     const [apPerformance, setApPerformance] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true); // Changed to true to show loading state initially
     const [error, setError] = useState(null);
 
     // Function to calculate AL activity ratio correctly
     const calculateActivityRatio = (al) => {
         const aps = apPerformance.filter(ap => ap.alName === al.name);
         if (aps.length === 0) return 0;
-        
+
         // Active APs are those who have issued at least 1 policy (monthlyCases > 0)
         const activeAPs = aps.filter(ap => ap.monthlyCases > 0).length;
         return Math.round((activeAPs / aps.length) * 100);
@@ -23,7 +23,7 @@ export const useMPData = () => {
         const currentDate = new Date();
         const currentMonth = currentDate.getMonth();
         const currentYear = currentDate.getFullYear();
-        
+
         const regions = ['NCR', 'Luzon', 'Visayas', 'Mindanao'];
         const cities = {
             'NCR': ['Manila', 'Quezon City', 'Makati', 'Taguig', 'Pasig'],
@@ -31,7 +31,7 @@ export const useMPData = () => {
             'Visayas': ['Cebu', 'Iloilo', 'Bacolod', 'Tacloban', 'Dumaguete'],
             'Mindanao': ['Davao', 'Cagayan de Oro', 'Zamboanga', 'General Santos', 'Butuan']
         };
-        
+
         const ALs = [
             {
                 id: 1,
@@ -170,29 +170,29 @@ export const useMPData = () => {
     const generateRealisticAPData = () => {
         const APs = [];
         const alData = generateRealisticALData();
-        
+
         alData.forEach((al, index) => {
             // Generate APs for each AL
             const apCount = al.totalAPs;
-            
+
             for (let i = 1; i <= apCount; i++) {
                 const apId = index * 100 + i;
                 // Randomly decide if AP has issued policies (some may have 0)
                 const hasIssuedPolicy = Math.random() > 0.3; // 70% have issued at least 1 policy
                 const monthlyCases = hasIssuedPolicy ? Math.floor(Math.random() * 12) + 1 : 0;
                 const isActive = monthlyCases > 0; // Active if issued at least 1 policy
-                
-                const performanceStatus = monthlyCases >= 7 ? 'PERFORMING' : 
-                                        monthlyCases >= 4 ? 'AVERAGE' : 
-                                        'NEEDS IMPROVEMENT';
+
+                const performanceStatus = monthlyCases >= 7 ? 'PERFORMING' :
+                    monthlyCases >= 4 ? 'AVERAGE' :
+                        'NEEDS IMPROVEMENT';
                 const totalANP = Math.floor(Math.random() * 300000) + 50000;
                 const monthlyANP = isActive ? Math.floor(totalANP / 12) : 0;
                 const totalCases = Math.floor(totalANP / 5000);
-                
-                const lastActivity = isActive 
+
+                const lastActivity = isActive
                     ? new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
                     : new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
-                
+
                 APs.push({
                     id: apId,
                     name: `AP-${apId.toString().padStart(4, '0')} ${['Miguel', 'Anna', 'Carlos', 'Elena', 'Roberto', 'Sofia', 'Daniel', 'Carmen'][i % 8]} ${['Santos', 'Rodriguez', 'Lim', 'Tan', 'Cruz', 'Fernandez', 'Torres', 'Reyes'][i % 8]}`,
@@ -207,9 +207,9 @@ export const useMPData = () => {
                     monthlyCases: monthlyCases,
                     performanceStatus: performanceStatus,
                     commissionEarned: Math.floor(totalANP * 0.12),
-                    joinDate: '202' + (Math.floor(Math.random() * 4) + 1) + '-' + 
-                               (Math.floor(Math.random() * 12) + 1).toString().padStart(2, '0') + '-' + 
-                               (Math.floor(Math.random() * 28) + 1).toString().padStart(2, '0'),
+                    joinDate: '202' + (Math.floor(Math.random() * 4) + 1) + '-' +
+                        (Math.floor(Math.random() * 12) + 1).toString().padStart(2, '0') + '-' +
+                        (Math.floor(Math.random() * 28) + 1).toString().padStart(2, '0'),
                     licenseNumber: 'AP' + apId.toString().padStart(6, '0'),
                     contactNumber: '+63' + (9000000000 + Math.floor(Math.random() * 1000000000))
                 });
@@ -226,14 +226,14 @@ export const useMPData = () => {
         const totalANP = alData.reduce((sum, al) => sum + al.totalANP, 0);
         const monthlyANP = alData.reduce((sum, al) => sum + al.monthlyANP, 0);
         const totalCases = alData.reduce((sum, al) => sum + al.totalCases, 0);
-        
+
         // Calculate activity ratio for each AL dynamically
         const alDataWithActivity = alData.map(al => ({
             ...al,
             activityRatio: calculateActivityRatio(al),
             activeAPs: apData.filter(ap => ap.alName === al.name && ap.monthlyCases > 0).length
         }));
-        
+
         const avgActivityRatio = alDataWithActivity.reduce((sum, al) => sum + al.activityRatio, 0) / totalALs;
         const performingALs = alDataWithActivity.filter(al => al.status === 'PERFORMING').length;
         const performingAPs = apData.filter(ap => ap.monthlyCases >= 7).length;
@@ -258,30 +258,30 @@ export const useMPData = () => {
     };
 
     const loadMPData = async () => {
-        setLoading(false);
+        setLoading(true); // Set to true when starting to load data
         try {
             const apData = generateRealisticAPData();
             const alData = generateRealisticALData();
-            
+
             // Calculate AL activity ratio and active APs
             const alDataWithActivity = alData.map(al => {
                 const aps = apData.filter(ap => ap.alName === al.name);
                 const activeAPs = aps.filter(ap => ap.monthlyCases > 0).length;
                 const activityRatio = aps.length > 0 ? Math.round((activeAPs / aps.length) * 100) : 0;
-                
+
                 return {
                     ...al,
                     activityRatio,
                     activeAPs
                 };
             });
-            
+
             const stats = calculateMPStats(alDataWithActivity, apData);
-            
+
             setAlPerformance(alDataWithActivity);
             setApPerformance(apData);
             setMpStats(stats);
-            
+
         } catch (error) {
             console.error('Error loading MP data:', error);
             setError('Failed to load data. Please try again.');
@@ -298,7 +298,7 @@ export const useMPData = () => {
         const average = aps.filter(ap => ap.monthlyCases >= 4 && ap.monthlyCases <= 6).length;
         const needsImprovement = aps.filter(ap => ap.monthlyCases < 4 && ap.monthlyCases > 0).length;
         const inactive = aps.filter(ap => ap.monthlyCases === 0).length;
-        
+
         return { total, active, performing, average, needsImprovement, inactive };
     };
 
@@ -311,7 +311,7 @@ export const useMPData = () => {
     const getALPerformanceTrend = (alId, months = 12) => {
         const al = alPerformance.find(al => al.id === alId);
         if (!al) return Array(months).fill(0);
-        
+
         const baseValue = al.monthlyCases;
         return Array.from({ length: months }, (_, i) => {
             const variation = Math.floor(Math.random() * 10) - 3;
@@ -329,7 +329,7 @@ export const useMPData = () => {
             { name: 'Allianz Secure Pro', category: 'Manual' },
             { name: 'Single Pay/Optimal', category: 'System' }
         ];
-        
+
         return policies.map(policy => ({
             ...policy,
             count: Math.floor(Math.random() * 50) + 10,
