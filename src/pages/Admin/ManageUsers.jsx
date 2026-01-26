@@ -376,8 +376,8 @@ const ManageUsers = () => {
             <select name="position" value={formData.position} onChange={handleFormChange}>
               <option value="Admin">Admin</option>
               <option value="MP">Managing Partner (MP)</option>
-              <option value="AL">Agent Leader (AL)</option>
-              <option value="AP">Agent Partner (AP)</option>
+              <option value="AL">Agency Leader (AL)</option>
+              <option value="AP">Agency Partner (AP)</option>
               <option value="MD">Managing Director (MD)</option>
             </select>
           </div>
