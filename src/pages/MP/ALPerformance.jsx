@@ -188,8 +188,8 @@ const ALPerformance = () => {
             case 'totalALs':
                 return (
                     <div>
-                        <h3>Total Agent Leaders Details</h3>
-                        <p>Showing detailed information about all Agent Leaders in the network.</p>
+                        <h3>Total Agency Leaders Details</h3>
+                        <p>Showing detailed information about all Agency Leaders in the network.</p>
                         <div className="info-grid">
                             <div className="info-item">
                                 <span className="info-label">Total ALs:</span>
@@ -213,8 +213,8 @@ const ALPerformance = () => {
             case 'performingALs':
                 return (
                     <div>
-                        <h3>Performing Agent Leaders Details</h3>
-                        <p>Agent Leaders with monthly cases ≥ 7 policies.</p>
+                        <h3>Performing Agency Leaders Details</h3>
+                        <p>Agency Leaders with monthly cases ≥ 7 policies.</p>
                         <table className="performance-table">
                             <thead>
                                 <tr>
@@ -239,7 +239,7 @@ const ALPerformance = () => {
                 return (
                     <div>
                         <h3>Total ANP Details</h3>
-                        <p>Cumulative Annual Premium from all Agent Leaders.</p>
+                        <p>Cumulative Annual Premium from all Agency Leaders.</p>
                         <div className="info-grid">
                             <div className="info-item">
                                 <span className="info-label">Total ANP:</span>
@@ -260,7 +260,7 @@ const ALPerformance = () => {
                 return (
                     <div>
                         <h3>Total Cases Details</h3>
-                        <p>Total policies issued by all Agent Leaders.</p>
+                        <p>Total policies issued by all Agency Leaders.</p>
                         <div className="info-grid">
                             <div className="info-item">
                                 <span className="info-label">Total Cases:</span>
@@ -364,7 +364,7 @@ const ALPerformance = () => {
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                     onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                    <div className="stat-label">Total Agent Leaders</div>
+                    <div className="stat-label">Total Agency Leaders</div>
                     <div className="stat-value">{totalALs}</div>
                     <div className="stat-subtext">Managing the network</div>
                 </div>
@@ -409,7 +409,7 @@ const ALPerformance = () => {
             {/* Main Table */}
             <div className="card">
                 <div className="card-header">
-                    <h2>Agent Leaders Detailed View - {months[appliedFilters.month]} {appliedFilters.year}</h2>
+                    <h2>Agency Leaders Detailed View - {months[appliedFilters.month]} {appliedFilters.year}</h2>
                     <div className="card-header-stats">
                         <span className="stat-badge">Showing: {filteredALs.length} of {alPerformance.length}</span>
                         <span className="stat-badge status-performing">Performing: {performingALs}</span>
@@ -523,9 +523,9 @@ const ALPerformance = () => {
                     <div className="mp-modal-content" style={{ maxWidth: '1000px', maxHeight: '90vh' }}>
                         <div className="mp-modal-header">
                             <div>
-                                <h2>{selectedAL.name} - Agent Partners</h2>
+                                <h2>{selectedAL.name} - Agency Partners</h2>
                                 <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>
-                                    APs under this Agent Leader and their performance
+                                    APs under this Agency Leader and their performance
                                 </p>
                             </div>
                             <button
@@ -570,7 +570,7 @@ const ALPerformance = () => {
                                 </div>
                             </div>
 
-                            <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Agent Partners List</h4>
+                            <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Agency Partners List</h4>
                             <div className="modal-table-responsive">
                                 <table className="performance-table">
                                     <thead>

@@ -157,9 +157,9 @@ const SubmissionPage = () => {
             const response = await fetch('http://localhost:3000/api/preview-application', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    formData: { ...formData, isGAE, isVSP }, 
-                    serialNumber: formData.serialNumber 
+                body: JSON.stringify({
+                    formData: { ...formData, isGAE, isVSP },
+                    serialNumber: formData.serialNumber
                 })
             });
 
@@ -181,6 +181,43 @@ const SubmissionPage = () => {
         setShowPreview(false);
     };
 
+    // --- NEW: VSP ATTESTATION EMAIL HANDLER ---
+    const handleSendAttestation = async () => {
+        if (!formData.serialNumber) {
+            alert("Please enter a valid Serial Number first.");
+            return;
+        }
+
+        if (!confirm(`Send VSP Attestation email to ${formData.clientFirstName} ${formData.clientLastName}?`)) return;
+
+        try {
+            setLoading(true);
+            setMessage('Sending attestation email...');
+            setMessageType('info');
+
+            // Send request to backend
+            const response = await fetch('http://localhost:3000/api/vsp/send-attestation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ serialNumber: formData.serialNumber })
+            }).then(res => res.json());
+
+            if (response.success) {
+                setMessage(response.message);
+                setMessageType('success');
+            } else {
+                setMessage('Error: ' + response.message);
+                setMessageType('error');
+            }
+        } catch (error) {
+            console.error(error);
+            setMessage('Failed to send email.');
+            setMessageType('error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // --- HELPER TO GET ACTIVE REQUIREMENTS ---
     const getActiveRequirements = () => {
         if (!formData.formType) return [];
@@ -194,6 +231,8 @@ const SubmissionPage = () => {
         // --- VSP LOGIC ---
         if (isVSP) {
             reqs.push({ id: 'proof_meet', label: 'Proof of Meeting (VSP)', required: true });
+            // Note: Attestation is now handled via email, but we still might require proof in file form
+            // If the email replaces the file, you can remove this line below:
             reqs.push({ id: 'proof_attest', label: 'Proof of Attestation (VSP)', required: true });
         }
 
@@ -223,7 +262,7 @@ const SubmissionPage = () => {
 
             const dataPayload = new FormData();
             dataPayload.append('serialNumber', formData.serialNumber);
-            dataPayload.append('formData', JSON.stringify({ ...formData, isGAE, isVSP })); 
+            dataPayload.append('formData', JSON.stringify({ ...formData, isGAE, isVSP }));
 
             Object.entries(specificFiles).forEach(([key, filesArray]) => {
                 filesArray.forEach(file => {
@@ -349,30 +388,57 @@ const SubmissionPage = () => {
                         </div>
                     )}
 
-                    {/* --- VSP TOGGLE (Centered Content) --- */}
+                    {/* --- MODIFIED VSP SECTION WITH ATTESTATION BUTTON --- */}
                     {formData.formType && (
-                        <div className="form-group" style={{ 
-                            display: 'flex', 
-                            flexDirection: 'row', 
-                            justifyContent: 'center', // CENTERS CONTENT HORIZONTALLY
-                            alignItems: 'center',     // CENTERS CONTENT VERTICALLY
-                            gap: '10px',
-                            marginTop: 'auto', 
-                            padding: '10px', 
-                            backgroundColor: '#e3f2fd', 
-                            borderRadius: '4px', 
+                        <div className="form-group" style={{
+                            display: 'flex',
+                            flexDirection: 'column', // Stack contents vertically
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            gap: '15px',
+                            marginTop: 'auto',
+                            padding: '15px',
+                            backgroundColor: '#e3f2fd',
+                            borderRadius: '4px',
                             border: '1px solid #b3d7ff'
                         }}>
-                            <input 
-                                type="checkbox" 
-                                id="vsp-toggle"
-                                checked={isVSP}
-                                onChange={(e) => setIsVSP(e.target.checked)}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer', margin: 0 }}
-                            />
-                            <label htmlFor="vsp-toggle" style={{ marginBottom: 0, cursor: 'pointer', fontWeight: 'bold', color: '#004085' }}>
-                                Virtual Selling Process (VSP)
-                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <input
+                                    type="checkbox"
+                                    id="vsp-toggle"
+                                    checked={isVSP}
+                                    onChange={(e) => setIsVSP(e.target.checked)}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer', margin: 0 }}
+                                />
+                                <label htmlFor="vsp-toggle" style={{ marginBottom: 0, cursor: 'pointer', fontWeight: 'bold', color: '#004085' }}>
+                                    Virtual Selling Process (VSP)
+                                </label>
+                            </div>
+
+                            {/* --- SEND ATTESTATION BUTTON --- */}
+                            {isVSP && (
+                                <button
+                                    type="button"
+                                    onClick={handleSendAttestation}
+                                    disabled={loading || !formData.serialNumber}
+                                    style={{
+                                        padding: '8px 16px',
+                                        backgroundColor: '#0055b8',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        fontSize: '13px',
+                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                        transition: 'background-color 0.2s'
+                                    }}
+                                >
+                                    📧 Send Attestation Email
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -473,7 +539,7 @@ const SubmissionPage = () => {
                                                 </label>
                                             </div>
                                         </div>
-                                        
+
                                         {hasFiles && (
                                             <ul style={{ listStyle: 'none', padding: 0, margin: 0, borderTop: '1px solid #eee', paddingTop: '8px' }}>
                                                 {uploadedFiles.map((file, idx) => (

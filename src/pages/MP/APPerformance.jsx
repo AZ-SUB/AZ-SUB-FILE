@@ -187,8 +187,8 @@ const APPerformance = () => {
             case 'totalAPs':
                 return (
                     <div>
-                        <h3>Total Agent Partners Details</h3>
-                        <p>Showing detailed information about all Agent Partners in the network.</p>
+                        <h3>Total Agency Partners Details</h3>
+                        <p>Showing detailed information about all Agency Partners in the network.</p>
                         <div className="info-grid">
                             <div className="info-item">
                                 <span className="info-label">Total APs:</span>
@@ -212,13 +212,13 @@ const APPerformance = () => {
             case 'activeAPs':
                 return (
                     <div>
-                        <h3>Active Agent Partners Details</h3>
-                        <p>Agent Partners who have issued at least 1 policy this month.</p>
+                        <h3>Active Agency Partners Details</h3>
+                        <p>Agency Partners who have issued at least 1 policy this month.</p>
                         <table className="performance-table">
                             <thead>
                                 <tr>
                                     <th>AP Name</th>
-                                    <th>Agent Leader</th>
+                                    <th>Agency Leader</th>
                                     <th>Monthly Cases</th>
                                     <th>Monthly ANP</th>
                                 </tr>
@@ -240,7 +240,7 @@ const APPerformance = () => {
                 return (
                     <div>
                         <h3>Total ANP Details</h3>
-                        <p>Cumulative Annual Premium from all Agent Partners.</p>
+                        <p>Cumulative Annual Premium from all Agency Partners.</p>
                         <div className="info-grid">
                             <div className="info-item">
                                 <span className="info-label">Total ANP:</span>
@@ -261,7 +261,7 @@ const APPerformance = () => {
                 return (
                     <div>
                         <h3>Average Monthly Cases Details</h3>
-                        <p>Average policies issued per Agent Partner.</p>
+                        <p>Average policies issued per Agency Partner.</p>
                         <div className="info-grid">
                             <div className="info-item">
                                 <span className="info-label">Average Cases:</span>
@@ -379,7 +379,7 @@ const APPerformance = () => {
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                     onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                    <div className="stat-label">Total Agent Partners</div>
+                    <div className="stat-label">Total Agency Partners</div>
                     <div className="stat-value">{totalAPs}</div>
                     <div className="stat-subtext">In network</div>
                 </div>
@@ -494,7 +494,7 @@ const APPerformance = () => {
             {/* Main Table */}
             <div className="card">
                 <div className="card-header">
-                    <h2>Agent Partners Detailed View - {months[appliedFilters.month]} {appliedFilters.year}</h2>
+                    <h2>Agency Partners Detailed View - {months[appliedFilters.month]} {appliedFilters.year}</h2>
                     <div className="card-header-stats">
                         <span className="stat-badge">Showing: {filteredAPs.length} of {apPerformance.length}</span>
                         <span className="stat-badge status-active">Active: {activeAPs}</span>
@@ -506,7 +506,7 @@ const APPerformance = () => {
                         <thead>
                             <tr>
                                 <th>AP Name</th>
-                                <th>Agent Leader</th>
+                                <th>Agency Leader</th>
                                 <th>City</th>
                                 <th>Activity Status</th>
                                 <th>Last Activity</th>
@@ -627,7 +627,7 @@ const APPerformance = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <div style={{ fontSize: '12px', color: '#64748b' }}>Agent Leader</div>
+                                        <div style={{ fontSize: '12px', color: '#64748b' }}>Agency Leader</div>
                                         <div style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
                                             {selectedAP.alName}
                                         </div>
