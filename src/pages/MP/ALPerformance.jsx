@@ -1,6 +1,7 @@
 // ALPerformance.jsx - FINAL UPDATED VERSION
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ALPageSkeleton } from './MPSkeletons';
 import { useMPData } from './MPData';
 import MPLayout from './MPLayout';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
@@ -10,8 +11,10 @@ import './MP_Styles.css';
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 const ALPerformance = () => {
-    const { alPerformance, apPerformance, getAPsByAL } = useMPData();
+    const { alPerformance, apPerformance, getAPsByAL, loading } = useMPData();
     const navigate = useNavigate();
+
+
 
     // State for filters
     const [searchTerm, setSearchTerm] = useState('');
@@ -123,9 +126,9 @@ const ALPerformance = () => {
         }
 
         // Search filter
+        // Search filter
         if (appliedFilters.search &&
             !al.name.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
-            !al.region.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
             !al.city.toLowerCase().includes(appliedFilters.search.toLowerCase())) {
             return false;
         }
@@ -216,7 +219,6 @@ const ALPerformance = () => {
                             <thead>
                                 <tr>
                                     <th>AL Name</th>
-                                    <th>Region</th>
                                     <th>Monthly Cases</th>
                                     <th>Activity Ratio</th>
                                 </tr>
@@ -225,7 +227,6 @@ const ALPerformance = () => {
                                 {filteredALs.filter(al => al.status === 'PERFORMING').map(al => (
                                     <tr key={al.id}>
                                         <td>{al.name}</td>
-                                        <td>{al.region}</td>
                                         <td>{al.monthlyCases}</td>
                                         <td>{al.activityRatio}%</td>
                                     </tr>
@@ -281,19 +282,20 @@ const ALPerformance = () => {
         }
     };
 
+    if (loading) {
+        return <ALPageSkeleton />;
+    }
+
     return (
-        <MPLayout>
+        <MPLayout title="Agent Leaders Performance">
             {/* Header with Filters - Matching MPDashboard style */}
-            <div className="mp-dashboard-header">
-                <h1>Agent Leaders Performance</h1>
-            </div>
 
             <div className="mp-filters">
                 <div className="filter-group">
                     <label>Search AL</label>
                     <input
                         type="text"
-                        placeholder="Search by name, region, or city..."
+                        placeholder="Search by name or city..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="mp-search-input"
@@ -418,7 +420,7 @@ const ALPerformance = () => {
                         <thead>
                             <tr>
                                 <th>AL Name</th>
-                                <th>Region</th>
+                                <th>City</th>
                                 <th>AP Count</th>
                                 <th>Activity Ratio</th>
                                 <th>Total ANP</th>
@@ -440,15 +442,12 @@ const ALPerformance = () => {
                                             <div className="agent-info">
                                                 <div className="agent-name">{al.name}</div>
                                                 <div className="agent-detail">
-                                                    {al.city}, {al.region}
+                                                    {al.city}
                                                 </div>
                                             </div>
                                         </td>
                                         <td>
-                                            <div style={{ fontWeight: '600' }}>{al.region}</div>
-                                            <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                                {al.city}
-                                            </div>
+                                            <div style={{ fontWeight: '600' }}>{al.city}</div>
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: '600' }}>{apSummary.total}</div>

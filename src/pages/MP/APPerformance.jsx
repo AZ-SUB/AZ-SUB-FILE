@@ -1,6 +1,7 @@
 // APPerformance.jsx - FINAL UPDATED VERSION
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { APPageSkeleton } from './MPSkeletons';
 import { useMPData } from './MPData';
 import MPLayout from './MPLayout';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
@@ -10,9 +11,12 @@ import './MP_Styles.css';
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 const APPerformance = () => {
-    const { apPerformance } = useMPData();
+    const { apPerformance, loading } = useMPData();
     const location = useLocation();
     const navigate = useNavigate();
+
+
+
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [activityFilter, setActivityFilter] = useState('All');
@@ -32,10 +36,50 @@ const APPerformance = () => {
     const [selectedStat, setSelectedStat] = useState(null);
     const [selectedAP, setSelectedAP] = useState(null);
 
+    // State for monthly ANP trend data
+    const [monthlyANPData, setMonthlyANPData] = useState(Array(12).fill(0));
+    const [monthlyANPCache, setMonthlyANPCache] = useState({});
+    const [loadingChart, setLoadingChart] = useState(false);
+
     // Month names
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const currentYear = new Date().getFullYear();
     const years = [currentYear - 2, currentYear - 1, currentYear];
+
+    // Fetch monthly ANP trend when year changes
+    useEffect(() => {
+        fetchMonthlyANPTrend();
+    }, [appliedFilters.year]);
+
+    // Function to fetch monthly ANP trend data - OPTIMIZED with caching
+    const fetchMonthlyANPTrend = useCallback(async () => {
+        const cacheKey = appliedFilters.year.toString();
+
+        // Check cache first - prevents redundant API calls
+        if (monthlyANPCache[cacheKey]) {
+            setMonthlyANPData(monthlyANPCache[cacheKey]);
+            return;
+        }
+
+        setLoadingChart(true);
+        try {
+            const response = await fetch(
+                `http://localhost:3000/api/mp/dashboard-stats?year=${appliedFilters.year}&month=${appliedFilters.month}`
+            );
+            const result = await response.json();
+            if (result.success && result.data.monthlyTrend) {
+                // Extract ANP values from monthlyTrend (convert to thousands)
+                const anpData = result.data.monthlyTrend.map(m => Math.round(m.anp / 1000));
+                setMonthlyANPData(anpData);
+                // Cache the result for future use
+                setMonthlyANPCache(prev => ({ ...prev, [cacheKey]: anpData }));
+            }
+        } catch (error) {
+            console.error('Error fetching monthly ANP trend:', error);
+        } finally {
+            setLoadingChart(false);
+        }
+    }, [appliedFilters.year, appliedFilters.month, monthlyANPCache]);
 
     // Check for AP details from navigation
     useEffect(() => {
@@ -98,35 +142,36 @@ const APPerformance = () => {
         setShowStatDetailsModal(true);
     };
 
-    // Filter APs based on applied filters
-    const filteredAPs = apPerformance.filter(ap => {
-        // Status filter
-        if (appliedFilters.status !== 'All') {
-            const performanceStatus = getAPPerformanceStatus(ap.monthlyCases);
-            if (performanceStatus !== appliedFilters.status) {
+    // Filter APs based on applied filters - MEMOIZED
+    const filteredAPs = useMemo(() => {
+        return apPerformance.filter(ap => {
+            // Status filter
+            if (appliedFilters.status !== 'All') {
+                const performanceStatus = getAPPerformanceStatus(ap.monthlyCases);
+                if (performanceStatus !== appliedFilters.status) {
+                    return false;
+                }
+            }
+
+            // Activity filter
+            if (appliedFilters.activity !== 'All') {
+                const activityStatus = getAPActivityStatus(ap.monthlyCases);
+                if (activityStatus !== appliedFilters.activity) {
+                    return false;
+                }
+            }
+
+            // Search filter
+            if (appliedFilters.search &&
+                !ap.name.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
+                !ap.alName.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
+                !ap.city.toLowerCase().includes(appliedFilters.search.toLowerCase())) {
                 return false;
             }
-        }
 
-        // Activity filter
-        if (appliedFilters.activity !== 'All') {
-            const activityStatus = getAPActivityStatus(ap.monthlyCases);
-            if (activityStatus !== appliedFilters.activity) {
-                return false;
-            }
-        }
-
-        // Search filter
-        if (appliedFilters.search &&
-            !ap.name.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
-            !ap.alName.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
-            !ap.region.toLowerCase().includes(appliedFilters.search.toLowerCase()) &&
-            !ap.city.toLowerCase().includes(appliedFilters.search.toLowerCase())) {
-            return false;
-        }
-
-        return true;
-    });
+            return true;
+        });
+    }, [apPerformance, appliedFilters]);
 
     // Calculate statistics based on filtered data
     const totalAPs = filteredAPs.length;
@@ -238,19 +283,20 @@ const APPerformance = () => {
         }
     };
 
+    if (loading) {
+        return <APPageSkeleton />;
+    }
+
     return (
-        <MPLayout>
+        <MPLayout title="Agent Partners Performance">
             {/* Header with Filters - Matching MPDashboard style */}
-            <div className="mp-dashboard-header">
-                <h1>Agent Partners Performance</h1>
-            </div>
 
             <div className="mp-filters">
                 <div className="filter-group">
                     <label>Search AP/AL</label>
                     <input
                         type="text"
-                        placeholder="Search by name, AL, region, or city..."
+                        placeholder="Search by name, AL, or city..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="mp-search-input"
@@ -418,7 +464,7 @@ const APPerformance = () => {
                                 labels: months.map(m => m.substring(0, 3)),
                                 datasets: [{
                                     label: 'ANP (Thousands)',
-                                    data: [145, 168, 195, 220, 255, 285, 245, 230, 210, 195, 165, 150],
+                                    data: monthlyANPData,
                                     backgroundColor: '#0055b8',
                                     borderRadius: 6
                                 }]
@@ -461,7 +507,7 @@ const APPerformance = () => {
                             <tr>
                                 <th>AP Name</th>
                                 <th>Agent Leader</th>
-                                <th>Region</th>
+                                <th>City</th>
                                 <th>Activity Status</th>
                                 <th>Last Activity</th>
                                 <th>Total ANP</th>
@@ -488,15 +534,9 @@ const APPerformance = () => {
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: '600' }}>{ap.alName}</div>
-                                            <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                                {ap.region}
-                                            </div>
                                         </td>
                                         <td>
-                                            <div style={{ fontWeight: '600' }}>{ap.region}</div>
-                                            <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                                {ap.city}
-                                            </div>
+                                            <div style={{ fontWeight: '600' }}>{ap.city}</div>
                                         </td>
                                         <td>
                                             <div className="activity-status-cell">
@@ -655,12 +695,6 @@ const APPerformance = () => {
 
                             <h4 style={{ marginBottom: '16px', color: '#0f172a' }}>Additional Information</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                                <div>
-                                    <div style={{ fontSize: '12px', color: '#64748b' }}>Region</div>
-                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>
-                                        {selectedAP.region}
-                                    </div>
-                                </div>
                                 <div>
                                     <div style={{ fontSize: '12px', color: '#64748b' }}>City</div>
                                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>

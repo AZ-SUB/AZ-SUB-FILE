@@ -1,115 +1,136 @@
-// MPLayout.jsx - MP-specific layout wrapper
+// MPLayout.jsx - Admin-styled layout for Management Partners
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import './MP_Styles.css';
+import sidebarLogo from '../../assets/logo1.png';
+import topLogo from '../../assets/2.png';
 
-const MPLayout = ({ children }) => {
+const MPLayout = ({ children, title = 'Dashboard' }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { currentUser, userRole } = useApp();
-    const isMPPage = location.pathname.startsWith('/mp');
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [showProfileMenu, setShowProfileMenu] = useState(false);
 
     const mpMenuItems = [
         {
             path: '/mp/dashboard',
             label: 'Dashboard',
-            icon: (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
-            )
+            icon: <i className="fa-solid fa-chart-line"></i>
         },
         {
             path: '/mp/al-performance',
             label: 'Agent Leaders',
-            icon: (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-            )
+            icon: <i className="fa-solid fa-users"></i>
         },
         {
             path: '/mp/ap-performance',
             label: 'Agent Partners',
-            icon: (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-            )
+            icon: <i className="fa-solid fa-user-group"></i>
         }
     ];
 
     const handleLogout = async () => {
-        // Clear MP-specific data
         localStorage.removeItem('mpData');
         navigate('/');
     };
 
     return (
         <div className="mp-layout">
-            <div className="app-layout-wrapper">
-                {/* MP Sidebar */}
-                <div className="mp-sidebar">
-                    <div className="sidebar-header">
-                        <Link to="/mp/dashboard" className="sidebar-logo" title="MP Dashboard">
-                            CAELUM
+            {/* SIDEBAR */}
+            <aside className={`mp-sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
+                <button
+                    className="mp-sidebar-toggle"
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+                >
+                    <i className="fa-solid fa-bars"></i>
+                </button>
+
+                <div className="sidebar-header">
+                    <Link to="/mp/dashboard" className="sidebar-logo" title="MP Dashboard">
+                        {sidebarOpen ? (
+                            <img src={sidebarLogo} alt="Caelum Logo" className="sidebar-logo-img" />
+                        ) : (
+                            <img src={sidebarLogo} alt="C" className="sidebar-logo-img collapsed" />
+                        )}
+                    </Link>
+                </div>
+
+                <div className="sidebar-menu">
+                    {mpMenuItems.map((item) => (
+                        <Link
+                            key={item.path}
+                            to={item.path}
+                            className={`sidebar-item ${location.pathname === item.path ? 'active' : ''}`}
+                        >
+                            <div className="sidebar-icon">{item.icon}</div>
+                            {sidebarOpen && <span>{item.label}</span>}
                         </Link>
+                    ))}
+                </div>
+
+                <div className="sidebar-footer">
+                    {/* Optional footer content if needed */}
+                </div>
+            </aside>
+
+            {/* HEADER */}
+            <header className={`mp-header ${sidebarOpen ? '' : 'expanded'}`}>
+                <div className="mp-header-content">
+                    <div className="header-left">
+                        {sidebarOpen && <h1 className="header-title-inline">{title}</h1>}
                     </div>
 
-                    <div className="sidebar-menu">
-                        {mpMenuItems.map((item) => (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                className={`sidebar-item ${location.pathname === item.path ? 'active' : ''}`}
-                            >
-                                <div className="sidebar-icon">{item.icon}</div>
-                                <span>{item.label}</span>
-                            </Link>
-                        ))}
+                    <div className="header-center-logo">
+                        {!sidebarOpen && (
+                            <img src={topLogo} alt="Logo" className="header-logo-img" />
+                        )}
                     </div>
 
-                    <div className="sidebar-footer">
-                        <div className="mp-user-info">
+                    <div className="mp-header-user">
+                        <button
+                            className="mp-user-profile-btn"
+                            onClick={() => setShowProfileMenu(!showProfileMenu)}
+                        >
                             <div className="mp-user-avatar">
-                                {currentUser?.name?.charAt(0) || 'M'}
+                                {currentUser?.name ? (
+                                    <span>{currentUser.name.charAt(0).toUpperCase()}</span>
+                                ) : (
+                                    <i className="fa-solid fa-user"></i>
+                                )}
                             </div>
-                            <div className="mp-user-details">
-                                <div className="mp-user-name">
-                                    {currentUser?.name || 'Management Partner'}
-                                </div>
-                                <div className="mp-user-role">
-                                    {userRole || 'MP'}
-                                </div>
-                            </div>
-                        </div>
-                        <button className="logout-btn" onClick={handleLogout}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                <polyline points="16 17 21 12 16 7"></polyline>
-                                <line x1="21" y1="12" x2="9" y2="12"></line>
-                            </svg>
-                            Logout
+                            <span>{currentUser?.name || 'Management Partner'} - {userRole || 'MP'}</span>
                         </button>
-                    </div>
-                </div>
 
-                {/* Main Content */}
-                <div className="main-content">
-                    <div className="container">
-                        {children}
+                        {showProfileMenu && (
+                            <div className="mp-profile-dropdown">
+                                <div className="mp-dropdown-item">
+                                    <i className="fa-solid fa-user"></i> Profile
+                                </div>
+                                <hr className="mp-dropdown-divider" />
+                                <button onClick={handleLogout} className="mp-dropdown-item mp-logout-item">
+                                    <i className="fa-solid fa-right-from-bracket"></i> Logout
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
+            </header>
+
+            {/* MAIN CONTENT */}
+            <main className={`main-content ${sidebarOpen ? '' : 'expanded'}`}>
+                <div className="container">
+                    {/* Page Title - Only when Sidebar Closed */}
+                    {!sidebarOpen && (
+                        <div className="mp-dashboard-header">
+                            <h1>{title}</h1>
+                        </div>
+                    )}
+                    {children}
+                </div>
+            </main>
         </div>
     );
 };

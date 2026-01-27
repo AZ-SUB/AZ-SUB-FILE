@@ -1,9 +1,10 @@
 // MP-Dashboard.jsx - UPDATED VERSION with clickable stat cards and history feature
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import MPLayout from './MPLayout';
+import { DashboardSkeleton } from './MPSkeletons';
 import { useMPData } from './MPData';
 import './MP_Styles.css';
 
@@ -11,15 +12,15 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tool
 
 const MPDashboard = () => {
     const { mpStats, alPerformance, apPerformance, refreshData, loading, error } = useMPData();
+
+
     const navigate = useNavigate();
     const [viewMode, setViewMode] = useState('overview');
-    const [searchTerm, setSearchTerm] = useState('');
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [appliedFilters, setAppliedFilters] = useState({
         month: new Date().getMonth(),
-        year: new Date().getFullYear(),
-        search: ''
+        year: new Date().getFullYear()
     });
 
     // State for modals
@@ -39,12 +40,62 @@ const MPDashboard = () => {
     const [loadingStatHistory, setLoadingStatHistory] = useState(false);
     const [currentHistoryData, setCurrentHistoryData] = useState(null);
 
+    // State for stat card trends (percentage changes)
+    const [statTrends, setStatTrends] = useState({});
+    const [statTrendsCache, setStatTrendsCache] = useState({});
+    const [loadingTrends, setLoadingTrends] = useState(false);
+
     // Fetch history data when selectedStat changes
     useEffect(() => {
         if (selectedStat && showStatDetailsModal) {
             fetchStatHistoryData(selectedStat).then(data => setCurrentHistoryData(data));
         }
     }, [selectedStat, appliedFilters.year, appliedFilters.month, showStatDetailsModal]);
+
+    // Fetch stat trends for all cards when filters change
+    useEffect(() => {
+        fetchAllStatTrends();
+    }, [appliedFilters.year, appliedFilters.month]);
+
+    // Function to fetch trends for all stat cards - OPTIMIZED with caching
+    const fetchAllStatTrends = useCallback(async () => {
+        const cacheKey = `${appliedFilters.year}_${appliedFilters.month}`;
+
+        // Check cache first - prevents redundant API calls
+        if (statTrendsCache[cacheKey]) {
+            setStatTrends(statTrendsCache[cacheKey]);
+            return;
+        }
+
+        setLoadingTrends(true);
+        const statTypes = ['activityRatio', 'totalANP', 'monthlyANP', 'totalCases', 'totalALs', 'totalAPs'];
+        const trends = {};
+
+        await Promise.all(
+            statTypes.map(async (statType) => {
+                try {
+                    const response = await fetch(
+                        `http://localhost:3000/api/mp/monthly-history?year=${appliedFilters.year}&month=${appliedFilters.month}&statType=${statType}`
+                    );
+                    const result = await response.json();
+                    if (result.success && result.data) {
+                        trends[statType] = {
+                            yearlyChange: result.data.yearlyChange,
+                            trend: result.data.trend
+                        };
+                    }
+                } catch (error) {
+                    console.error(`Error fetching trend for ${statType}:`, error);
+                }
+            })
+        );
+
+        setStatTrends(trends);
+        // Cache the result for future use
+        setStatTrendsCache(prev => ({ ...prev, [cacheKey]: trends }));
+        setLoadingTrends(false);
+    }, [appliedFilters.year, appliedFilters.month, statTrendsCache]);
+
 
     // Month names for filter
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -57,32 +108,29 @@ const MPDashboard = () => {
     const applyFilters = () => {
         setAppliedFilters({
             month: selectedMonth,
-            year: selectedYear,
-            search: searchTerm
+            year: selectedYear
         });
 
         // Update data based on filters
-        updateFilteredData(selectedMonth, selectedYear, searchTerm);
+        updateFilteredData(selectedMonth, selectedYear);
     };
 
     // Clear filters
     const clearFilters = () => {
         setSelectedMonth(new Date().getMonth());
         setSelectedYear(currentYear);
-        setSearchTerm('');
         setAppliedFilters({
             month: new Date().getMonth(),
-            year: currentYear,
-            search: ''
+            year: currentYear
         });
 
         // Reset data to default
-        updateFilteredData(new Date().getMonth(), currentYear, '');
+        updateFilteredData(new Date().getMonth(), currentYear);
     };
 
     // Function to update data based on filters
-    const updateFilteredData = (month, year, search) => {
-        setAppliedFilters({ month, year, search });
+    const updateFilteredData = (month, year) => {
+        setAppliedFilters({ month, year });
         // Fetch new stats based on month and year
         refreshData(month, year);
     };
@@ -177,22 +225,27 @@ const MPDashboard = () => {
         }
     };
 
-    // Get top performers based on filters
-    const getTopPerformers = () => {
-        let filteredALs = [...alPerformance];
+    // Helper function to format stat trend display - with loading state
+    const formatStatTrend = (statType) => {
+        if (loadingTrends) return { arrow: '', percentage: '...', className: 'loading' };
 
-        // Apply search filter
-        if (appliedFilters.search) {
-            filteredALs = filteredALs.filter(al =>
-                al.name.toLowerCase().includes(appliedFilters.search.toLowerCase())
-            );
-        }
+        const trend = statTrends[statType];
+        if (!trend) return { arrow: '', percentage: '--', className: '' };
 
-        // Sort by monthly ANP (descending)
-        return filteredALs
+        const arrow = trend.trend === 'up' ? '↑' : trend.trend === 'down' ? '↓' : '→';
+        const percentage = `${Math.abs(trend.yearlyChange).toFixed(1)}%`;
+        const className = trend.trend === 'up' ? 'up' : trend.trend === 'down' ? 'down' : 'stable';
+
+        return { arrow, percentage, className };
+    };
+
+    // Get top performers based on filters - MEMOIZED
+    const topPerformers = useMemo(() => {
+        // Simply return top 5 ALs by monthly ANP
+        return [...alPerformance]
             .sort((a, b) => b.monthlyANP - a.monthlyANP)
             .slice(0, 5);
-    };
+    }, [alPerformance]);
 
     // Handle View APs Modal
     const handleViewAPsModal = (al) => {
@@ -380,37 +433,20 @@ const MPDashboard = () => {
         );
     };
 
-    if (loading) {
-        return (
-            <MPLayout title="Dashboard">
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-                    <div style={{ fontSize: '18px', color: '#64748b' }}>Loading dashboard data...</div>
-                </div>
-            </MPLayout>
-        );
-    }
 
-    if (error) {
-        return (
-            <MPLayout title="Dashboard">
-                <div style={{ padding: '24px', color: 'red' }}>Error loading data: {error}</div>
-            </MPLayout>
-        );
-    }
 
-    // Calculate current stats
-    const stats = calculateStats();
+    // Calculate current stats - MEMOIZED
+    const stats = useMemo(() => calculateStats(), [alPerformance, apPerformance, mpStats]);
 
-    // Use real chart data from backend (mpStats)
-    // Note: mpStats is already updated by refreshData(year)
-    const mostAvailedPolicies = mpStats.policyDistribution || [];
-    const monthlyIssuedPolicies = mpStats.monthlyTrend || [];
+    // Use real chart data from backend (mpStats) - MEMOIZED
+    const mostAvailedPolicies = useMemo(() => mpStats?.policyDistribution || [], [mpStats?.policyDistribution]);
+    const monthlyIssuedPolicies = useMemo(() => mpStats?.monthlyTrend || [], [mpStats?.monthlyTrend]);
 
     const selectedMonthYear = `${months[appliedFilters.month]} ${appliedFilters.year}`;
     const monthSpecificStats = stats.monthSpecificStats;
 
-    // Chart data for most availed policies
-    const policyChartData = {
+    // Chart data for most availed policies - MEMOIZED
+    const policyChartData = useMemo(() => ({
         labels: mostAvailedPolicies.map(p => p.policy_name),
         datasets: [{
             label: 'Number of Policies',
@@ -418,10 +454,10 @@ const MPDashboard = () => {
             backgroundColor: ['#003781', '#0055b8', '#4d7cff', '#7ba0ff', '#a3c1ff', '#d1e0ff'],
             borderRadius: 6
         }]
-    };
+    }), [mostAvailedPolicies]);
 
-    // Monthly issued chart data
-    const monthlyChartData = {
+    // Monthly issued chart data - MEMOIZED
+    const monthlyChartData = useMemo(() => ({
         labels: monthlyIssuedPolicies.map(m => m.month),
         datasets: [
             {
@@ -438,10 +474,23 @@ const MPDashboard = () => {
                 yAxisID: 'y1'
             }
         ]
-    };
+    }), [monthlyIssuedPolicies]);
 
-    // Get top performing ALs for the table
-    const topALs = getTopPerformers();
+    // Top performing ALs for the table (already memoized as 'topPerformers')
+
+    // Loading and Error states (moved after hooks)
+    // Loading and Error states (moved after hooks)
+    if (loading) {
+        return <DashboardSkeleton />;
+    }
+
+    if (error) {
+        return (
+            <MPLayout title="Dashboard Overview">
+                <div style={{ padding: '24px', color: 'red' }}>Error loading data: {error}</div>
+            </MPLayout>
+        );
+    }
 
     // Render the overview
     const renderOverview = () => (
@@ -475,17 +524,6 @@ const MPDashboard = () => {
                 </div>
 
                 <div className="filter-group">
-                    <label>Search AL/AP:</label>
-                    <input
-                        type="text"
-                        placeholder="Search AL or AP name..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="mp-search-input"
-                    />
-                </div>
-
-                <div className="filter-group">
                     <label>&nbsp;</label>
                     <div className="filter-buttons">
                         <button onClick={applyFilters} className="apply-filter-btn">
@@ -511,7 +549,9 @@ const MPDashboard = () => {
                 >
                     <div className="stat-header">
                         <div className="stat-label">Activity Ratio</div>
-                        <div className="stat-trend up">↑ 2.3%</div>
+                        <div className={`stat-trend ${formatStatTrend('activityRatio').className}`}>
+                            {formatStatTrend('activityRatio').arrow} {formatStatTrend('activityRatio').percentage}
+                        </div>
                     </div>
                     <div className="stat-value">{monthSpecificStats.activityRatio}%</div>
                     <div className="stat-subtext">{stats.activeAPs} of {mpStats.totalAPs} APs active</div>
@@ -526,7 +566,9 @@ const MPDashboard = () => {
                 >
                     <div className="stat-header">
                         <div className="stat-label">Total ANP</div>
-                        <div className="stat-trend up">↑ 12.5%</div>
+                        <div className={`stat-trend ${formatStatTrend('totalANP').className}`}>
+                            {formatStatTrend('totalANP').arrow} {formatStatTrend('totalANP').percentage}
+                        </div>
                     </div>
                     <div className="stat-value">₱ {(mpStats.totalANP / 1000000).toFixed(1)}M</div>
                     <div className="stat-subtext">All-time Annual Premium</div>
@@ -541,7 +583,9 @@ const MPDashboard = () => {
                 >
                     <div className="stat-header">
                         <div className="stat-label">Monthly ANP</div>
-                        <div className="stat-trend up">↑ 8.2%</div>
+                        <div className={`stat-trend ${formatStatTrend('monthlyANP').className}`}>
+                            {formatStatTrend('monthlyANP').arrow} {formatStatTrend('monthlyANP').percentage}
+                        </div>
                     </div>
                     <div className="stat-value">₱ {mpStats.monthlyANP.toLocaleString()}</div>
                     <div className="stat-subtext">{selectedMonthYear} Performance</div>
@@ -556,7 +600,9 @@ const MPDashboard = () => {
                 >
                     <div className="stat-header">
                         <div className="stat-label">Total Cases</div>
-                        <div className="stat-trend up">↑ 5.7%</div>
+                        <div className={`stat-trend ${formatStatTrend('totalCases').className}`}>
+                            {formatStatTrend('totalCases').arrow} {formatStatTrend('totalCases').percentage}
+                        </div>
                     </div>
                     <div className="stat-value">{mpStats.monthlyCases.toLocaleString()}</div>
                     <div className="stat-subtext">Policies Issued</div>
@@ -574,7 +620,9 @@ const MPDashboard = () => {
                 >
                     <div className="stat-header">
                         <div className="stat-label">Agent Leaders</div>
-                        <div className="stat-trend up">↑ 15.4%</div>
+                        <div className={`stat-trend ${formatStatTrend('totalALs').className}`}>
+                            {formatStatTrend('totalALs').arrow} {formatStatTrend('totalALs').percentage}
+                        </div>
                     </div>
                     <div className="stat-value">{mpStats.totalALs}</div>
                     <div className="stat-subtext">{stats.performingALs} Performing ({mpStats.totalALs > 0 ? ((stats.performingALs / mpStats.totalALs) * 100).toFixed(0) : 0}%)</div>
@@ -589,7 +637,9 @@ const MPDashboard = () => {
                 >
                     <div className="stat-header">
                         <div className="stat-label">Agent Partners</div>
-                        <div className="stat-trend up">↑ 12.2%</div>
+                        <div className={`stat-trend ${formatStatTrend('totalAPs').className}`}>
+                            {formatStatTrend('totalAPs').arrow} {formatStatTrend('totalAPs').percentage}
+                        </div>
                     </div>
                     <div className="stat-value">{mpStats.totalAPs}</div>
                     <div className="stat-subtext">{stats.activeAPs} Active ({mpStats.totalAPs > 0 ? ((stats.activeAPs / mpStats.totalAPs) * 100).toFixed(0) : 0}%)</div>
@@ -604,7 +654,9 @@ const MPDashboard = () => {
                 >
                     <div className="stat-header">
                         <div className="stat-label">AL Avg Activity</div>
-                        <div className="stat-trend up">↑ 3.1%</div>
+                        <div className={`stat-trend ${formatStatTrend('activityRatio').className}`}>
+                            {formatStatTrend('activityRatio').arrow} {formatStatTrend('activityRatio').percentage}
+                        </div>
                     </div>
                     <div className="stat-value">{stats.avgActivityRatio.toFixed(1)}%</div>
                     <div className="stat-subtext">Average across all ALs</div>
@@ -619,7 +671,9 @@ const MPDashboard = () => {
                 >
                     <div className="stat-header">
                         <div className="stat-label">AP Avg. ANP</div>
-                        <div className="stat-trend up">↑ 8.7%</div>
+                        <div className={`stat-trend ${formatStatTrend('totalANP').className}`}>
+                            {formatStatTrend('totalANP').arrow} {formatStatTrend('totalANP').percentage}
+                        </div>
                     </div>
                     <div className="stat-value">₱ {stats.avgANPPerAP.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                     <div className="stat-subtext">Per Active Partner (Selected)</div>
@@ -721,7 +775,7 @@ const MPDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {topALs.map((al, index) => {
+                            {topPerformers.map((al, index) => {
                                 return (
                                     <tr key={al.id}>
                                         <td>
@@ -809,11 +863,7 @@ const MPDashboard = () => {
     );
 
     return (
-        <MPLayout>
-            <div className="mp-dashboard-header">
-                <h1>CAELUM</h1>
-            </div>
-
+        <MPLayout title="Dashboard Overview">
             <div className="mp-dashboard-content">
                 {viewMode === 'overview' && renderOverview()}
             </div>

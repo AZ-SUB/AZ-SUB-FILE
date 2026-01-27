@@ -1,0 +1,135 @@
+/* MPSkeletons.css */
+.skeleton {
+    background: #e2e8f0;
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+    /* ensure visibility */
+    display: block;
+}
+
+.skeleton::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Skeleton Layout Grid */
+.skeleton-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.skeleton-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.skeleton-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.skeleton-chart {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    height: 400px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.skeleton-table-container {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+}
+
+.skeleton-table-header {
+    height: 40px;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.skeleton-table-row {
+    height: 60px;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* Text placeholders */
+.skeleton-label {
+    height: 14px;
+    width: 60%;
+    margin-bottom: 8px;
+    border-radius: 4px;
+}
+
+.skeleton-value {
+    height: 28px;
+    width: 40%;
+    border-radius: 6px;
+}
+
+.skeleton-subtext {
+    height: 12px;
+    width: 30%;
+    margin-top: 8px;
+    border-radius: 4px;
+}
+
+.skeleton-filter-bar {
+    height: 60px;
+    background: white;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+}
+
+.skeleton-header-title {
+    height: 32px;
+    width: 250px;
+    margin-top: 20px;
+    margin-bottom: 24px;
+    border-radius: 8px;
+}
+
+@media (max-width: 1024px) {
+    .skeleton-dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .skeleton-charts-grid {
+        grid-template-columns: 1fr;
+    }
+}

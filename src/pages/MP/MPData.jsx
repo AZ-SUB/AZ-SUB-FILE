@@ -66,6 +66,65 @@ export const MPDataProvider = ({ children }) => {
         }
     };
 
+    const [queryCache, setQueryCache] = useState({});
+
+    // Helper to generate cache key
+    const getCacheKey = (month, year) => `${year}-${month}`;
+
+    // Generic fetch wrapper with caching
+    const fetchDataWithCache = async (month, year) => {
+        const queryYear = year || new Date().getFullYear();
+        const queryMonth = month !== undefined ? month : new Date().getMonth();
+        const cacheKey = getCacheKey(queryMonth, queryYear);
+
+        // Check cache first
+        if (queryCache[cacheKey]) {
+            const cached = queryCache[cacheKey];
+            setAlPerformance(cached.alPerformance);
+            setApPerformance(cached.apPerformance);
+            setMpStats(cached.mpStats);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const [alRes, apRes, mpRes] = await Promise.all([
+                fetch(`http://localhost:3000/api/mp/al-performance?month=${queryMonth}&year=${queryYear}`),
+                fetch(`http://localhost:3000/api/mp/ap-performance?month=${queryMonth}&year=${queryYear}`),
+                fetch(`http://localhost:3000/api/mp/dashboard-stats?month=${queryMonth}&year=${queryYear}`)
+            ]);
+
+            const alData = await alRes.json();
+            const apData = await apRes.json();
+            const mpData = await mpRes.json();
+
+            const newAlPerformance = alData.success ? alData.data : [];
+            const newApPerformance = apData.success ? apData.data : [];
+            const newMpStats = mpData.success ? mpData.data : {};
+
+            // Batch updates
+            setAlPerformance(newAlPerformance);
+            setApPerformance(newApPerformance);
+            setMpStats(newMpStats);
+
+            // Update cache
+            setQueryCache(prev => ({
+                ...prev,
+                [cacheKey]: {
+                    alPerformance: newAlPerformance,
+                    apPerformance: newApPerformance,
+                    mpStats: newMpStats
+                }
+            }));
+        } catch (err) {
+            console.error('Error fetching dashboard data:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Get APs by AL name
     const getAPsByAL = (alName) => {
         return apPerformance.filter(ap => ap.alName === alName);
@@ -73,18 +132,8 @@ export const MPDataProvider = ({ children }) => {
 
     // Initial data fetch
     useEffect(() => {
-        const fetchAllData = async () => {
-            setLoading(true);
-            const now = new Date();
-            await Promise.all([
-                fetchALPerformance(now.getMonth(), now.getFullYear()),
-                fetchAPPerformance(now.getMonth(), now.getFullYear()),
-                fetchMPStats(now.getMonth(), now.getFullYear())
-            ]);
-            setLoading(false);
-        };
-
-        fetchAllData();
+        const now = new Date();
+        fetchDataWithCache(now.getMonth(), now.getFullYear());
     }, []);
 
     const value = {
@@ -94,15 +143,7 @@ export const MPDataProvider = ({ children }) => {
         loading,
         error,
         getAPsByAL,
-        refreshData: async (month, year) => {
-            setLoading(true);
-            await Promise.all([
-                fetchALPerformance(month, year),
-                fetchAPPerformance(month, year),
-                fetchMPStats(month, year)
-            ]);
-            setLoading(false);
-        }
+        refreshData: (month, year) => fetchDataWithCache(month, year)
     };
 
     return (
