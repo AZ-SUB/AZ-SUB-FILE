@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
 import "./Style/AdminLayout.css";
-import "./Style/SerialNumber.css?v=2.3";
+import "./Style/SerialNumber.css";
 import LogoImage from "../../assets/logo1.png";
 
 
-const AdminSe1rialNumber = () => {
+const AdminSerialNumber = () => {
   const navigate = useNavigate();
 
   const [totalUsers, setTotalUsers] = useState(0);
@@ -387,8 +387,8 @@ const AdminSe1rialNumber = () => {
                     {/* We use firstIndex + index + 1 so that Page 2 starts at 17, 18, etc. */}
                     <td>{firstIndex + index + 1}</td>
                     <td>{item.serial_number}</td>
-                    <td>{item.Confirm ? "Yes" : "-"}</td>
                     <td>{item.is_issued ? "Yes" : "-"}</td>
+                    <td>{item.Confirm ? "Yes" : "-"}</td>
                     <td>{item.ResponseID || "-"}</td>
                     <td>
                       <span className={`type-badge ${item.serial_type?.replace(/\s+/g, '-').toLowerCase()}`}>
@@ -543,4 +543,4 @@ const AdminSe1rialNumber = () => {
 
 
 
-export default AdminSe1rialNumber;
+export default AdminSerialNumber;

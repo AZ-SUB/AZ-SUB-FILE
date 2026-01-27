@@ -64,12 +64,25 @@ function Login() {
     // Fetch the latest account_type from profiles table
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("account_type, id, username, first_name, last_name")
+      .select("account_type, id, username, first_name, last_name, Status")
       .eq("id", user.id)
       .single();
 
     if (profileError || !profileData) {
       setError("Could not fetch user profile.");
+      return;
+    }
+
+    // Check if account is inactive
+    if (profileData.Status === "Inactive") {
+      const accountType = profileData.account_type?.toLowerCase();
+      if (accountType === "ap") {
+        setError("Your account is inactive. Contact the Agency Leader");
+      } else if (accountType === "al") {
+        setError("Your Account is Inactive. Contact the Admin");
+      } else {
+        setError("Your account is inactive. Please contact support.");
+      }
       return;
     }
 
@@ -131,7 +144,7 @@ function Login() {
 
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label className="form-label">Username or Email</label>
+              <label className="form-label">Email</label>
               <input
                 type="text"
                 className="form-input"

@@ -221,8 +221,8 @@ const AdminProfile = () => {
         {isModalOpen && (
           <div className="modal-overlay">
             <div className="modal-content">
-              <h3>Update Profile Information</h3>
-              <form onSubmit={handleUpdate} className="profile-form">
+              <div className="modal-title" style={{ padding: '22px 35px', borderBottom: '1px solid var(--border-color)', background: '#f7f9fc' }}>Update Profile Information</div>
+              <form onSubmit={handleUpdate} className="profile-form modal-form">
                 <div className="form-grid">
                   <input type="text" placeholder="First Name" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} />
                   <input type="text" placeholder="Last Name" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} />
@@ -248,9 +248,9 @@ const AdminProfile = () => {
                     <option value="Annulled">Annulled</option>
                   </select>
                 </div>
-                <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                  <button type="submit" className="save-btn">Save Changes</button>
+                <div className="modal-buttons" style={{ padding: '18px 35px', borderTop: '1px solid var(--border-color)', background: '#f7f9fc' }}>
+                  <button type="button" className="modal-close" onClick={() => setIsModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="modal-submit">Save Changes</button>
                 </div>
               </form>
             </div>
@@ -261,9 +261,9 @@ const AdminProfile = () => {
         {isPasswordModalOpen && (
           <div className="modal-overlay">
             <div className="modal-content password-modal">
-              <h3>Change Password</h3>
-              <p className="modal-subtitle">Verify your current password to update security.</p>
-              <form onSubmit={handleChangePassword}>
+              <div className="modal-title" style={{ padding: '22px 35px', borderBottom: '1px solid var(--border-color)', background: '#f7f9fc' }}>Change Password</div>
+              <form onSubmit={handleChangePassword} className="modal-form">
+                <p className="modal-subtitle" style={{ padding: '20px 35px 0 35px', marginBottom: '15px' }}>Verify your current password to update security.</p>
                 <div className="password-form-stack">
                   <div className="input-group">
                     <label>Old Password</label>
@@ -297,9 +297,9 @@ const AdminProfile = () => {
                     />
                   </div>
                 </div>
-                <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={() => setIsPasswordModalOpen(false)}>Cancel</button>
-                  <button type="submit" className="save-btn">Update Password</button>
+                <div className="modal-buttons" style={{ padding: '18px 35px', borderTop: '1px solid var(--border-color)', background: '#f7f9fc' }}>
+                  <button type="button" className="modal-close" onClick={() => setIsPasswordModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="modal-submit">Update Password</button>
                 </div>
               </form>
             </div>

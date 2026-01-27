@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
 import "./Style/AdminLayout.css";
-import "./Style/ManageUsers.css?v=2.1";
+import "./Style/ManageUsers.css";
 
 import LogoImage from "../../assets/logo1.png";
 
@@ -247,7 +247,7 @@ const ManageUsers = () => {
         </ul>
       </aside>
 
-      <header className={`admin-header ${sidebarOpen ? '' : expanded}`}>
+      <header className={`admin-header ${sidebarOpen ? '' : 'expanded'}`}>
         <div className="admin-header-content">
           <h1>Admin Dashboard</h1>
           <div className="admin-header-user">
@@ -321,7 +321,6 @@ const ManageUsers = () => {
       </main>
 
       {/* Add/Edit Modal */}
-{/* Add/Edit Modal */}
 {showModal && (
   <div className="modal-overlay">
     <div className="modal-content">
@@ -412,7 +411,7 @@ const ManageUsers = () => {
       {showViewModal && viewingUser && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <div className="modal-header"><h2 className="modal-title">View User Details</h2></div>
+            <div className="modal-title" style={{ padding: '22px 35px', borderBottom: '1px solid var(--border-color)', background: '#f7f9fc' }}>View User Details</div>
             <div className="modal-form">
               <div className="name-row">
                 <div className="input-group"><label>First Name</label><input type="text" value={viewingUser.first_name || ""} readOnly /></div>
