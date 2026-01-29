@@ -131,10 +131,6 @@ const AdminDashboard = () => {
             <i className="fa-solid fa-users"></i> {sidebarOpen && <span>Manage Users</span>}
           </li>
 
-          <li onClick={() => navigate("/admin/SerialNumber")}>
-            <i className="fa-solid fa-barcode"></i> {sidebarOpen && <span>Serial Numbers</span>}
-          </li>
-
           <li onClick={() => navigate("/admin/policies")}>
             <i className="fa-solid fa-file-contract"></i> {sidebarOpen && <span>Policies</span>}
           </li>
