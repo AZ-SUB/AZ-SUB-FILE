@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
 import "./Style/AdminLayout.css";
+import "./Style/Dashboard.css";
 import LogoImage from "../../assets/logo1.png";
 
 const AdminDashboard = () => {

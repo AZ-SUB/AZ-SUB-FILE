@@ -268,28 +268,25 @@ const AdminSerialNumber = () => {
 
       <main className={`admin-main-content ${sidebarOpen ? '' : 'expanded'}`}>
 
-        {/* ================= CARDS ================= */}
-        <div className="admin-cards-grid">
-          <div className="admin-card">
-            <p>Total Serial Numbers</p>
-            <h2>{totalUsers}</h2>
-          </div>
-
-          <div className="admin-card">
-            <p>Unused (Default)</p>
-            <h2>{unusedDefault}</h2>
-          </div>
-
-          <div className="admin-card">
-            <p>Unused (Allianz Well)</p>
-            <h2>{unusedAllianz}</h2>
-          </div>
-
-          <div className="admin-card used">
-            <p>Used Serials</p>
-            <h2>{usedSerials}</h2>
-          </div>
-        </div>
+{/* ================= CARDS ================= */}
+<div className="admin-cards-grids">
+  <div className="admin-card">
+    <p>Total Serial Numbers</p>
+    <h2>{totalUsers}</h2>
+  </div>
+  <div className="admin-card">
+    <p>Unused (Default)</p>
+    <h2>{unusedDefault}</h2>
+  </div>
+  <div className="admin-card">
+    <p>Unused (Allianz Well)</p>
+    <h2>{unusedAllianz}</h2>
+  </div>
+  <div className="admin-card used">
+    <p>Used Serials</p>
+    <h2>{usedSerials}</h2>
+  </div>
+</div>
 
         {/* ================= TABLE ================= */}
         <div className="table-header">

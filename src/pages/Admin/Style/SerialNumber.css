@@ -256,57 +256,59 @@
   padding: 4px 8px;
 }
 
+
 /* ================= CARD GRID ================= */
-.cards-grid {
+.admin-cards-grids {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(4, 1fr); /* Forces exactly 4 columns in one line */
+  gap: 15px;
+  margin-bottom: 25px;
   width: 100%;
 }
 
 /* ================= CARD ================= */
-.card {
+.admin-card {
   background: #FAFAFA;
-  padding: 16px 16px;
+  padding: 20px;
   border-radius: 12px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
   text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-height: 120px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+.admin-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
 }
 
-.card p {
+.admin-card p {
   margin: 0;
-  font-size: 14px;
-  color: #7f8c8d;
+  font-size: 15px;
+  color: #666;
   font-weight: 500;
+  margin-bottom: 8px;
 }
 
-.card h2 {
-  margin-top: 6px;
-  font-size: 26px;
-  color: #2c3e50;
+.admin-card h2 {
+  margin: 0;
+  font-size: 32px;
+  color: var(--primary-color);
+  font-weight: 700;
 }
 
 /* Card Variants */
-.card.used,
-.card.issued {
+.admin-card.used {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
   color: #FAFAFA;
 }
 
-.card.used p,
-.card.used h2,
-.card.issued p,
-.card.issued h2 {
+.admin-card.used p,
+.admin-card.used h2 {
   color: #FAFAFA;
 }
 
