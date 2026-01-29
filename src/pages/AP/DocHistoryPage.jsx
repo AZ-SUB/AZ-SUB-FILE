@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import api from '../../services/api';
 
 const DocHistoryPage = () => {
-    const { monitoringData, loadMonitoringData } = useApp();
+    const { monitoringData, loadMonitoringData, currentUser } = useApp();
     const [statusFilter, setStatusFilter] = useState('All');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -17,6 +17,9 @@ const DocHistoryPage = () => {
 
     // Filter Logic
     const submissions = monitoringData.filter(item => {
+        // [UPDATE] Restrict to current user's transactions only
+        if (currentUser?.id && item.profile_id !== currentUser.id) return false;
+
         const hasDocuments = item.form_type;
         const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
 
@@ -75,8 +78,8 @@ const DocHistoryPage = () => {
     };
 
     return (
-        <div className="card">
-            <div className="card-header">
+        <div className="content-container">
+            <div style={{ marginBottom: '20px', borderBottom: '2px solid #f1f1f1', paddingBottom: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
                     <div>
                         <h2 style={{ margin: '0 0 8px 0' }}>Document Submission History</h2>
@@ -124,7 +127,7 @@ const DocHistoryPage = () => {
                     </div>
                 </div>
             </div>
-            <div className="card-body">
+            <div>
                 {currentItems.length === 0 ? (
                     <div style={{
                         textAlign: 'center',

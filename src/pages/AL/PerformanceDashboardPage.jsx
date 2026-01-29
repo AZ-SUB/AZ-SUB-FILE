@@ -40,7 +40,7 @@ const PerformanceDashboardPage = () => {
         );
     }
 
-    const { performanceByAP, teamStats } = performanceData;
+    const { performanceByAP = [], teamStats = { totalIssued: 0, totalPending: 0, totalDeclined: 0, totalTeamANP: 0, totalMonthlyANP: 0 } } = performanceData || {};
 
     // Sorting logic
     const sortedData = [...performanceByAP].sort((a, b) => {

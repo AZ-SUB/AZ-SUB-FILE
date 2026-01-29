@@ -39,7 +39,7 @@ const DashboardPage = () => {
 
     // --- DATA PROCESSING ---
     useEffect(() => {
-        if (monitoringData.length > 0) {
+        if (monitoringData && monitoringData.length > 0) {
             let totalANP = 0, monthlyANP = 0;
             let submitted = monitoringData.length, issued = 0, declined = 0, pending = 0;
             const historyAgg = {};
@@ -86,7 +86,7 @@ const DashboardPage = () => {
     }, [monitoringData, selectedMonthKey]);
 
     // --- PAGINATION LOGIC ---
-    const serialData = monitoringData.filter(s => s.serial_number);
+    const serialData = (monitoringData || []).filter(s => s.serial_number);
     const totalPages = Math.ceil(serialData.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentItems = serialData.slice(startIndex, startIndex + itemsPerPage);
@@ -185,7 +185,7 @@ const DashboardPage = () => {
     };
 
     const policyTypes = {};
-    monitoringData.forEach(d => {
+    (monitoringData || []).forEach(d => {
         policyTypes[d.policy_type] = (policyTypes[d.policy_type] || 0) + 1;
     });
 
@@ -208,8 +208,8 @@ const DashboardPage = () => {
     const sortedMonthKeys = Object.keys(monthlyHistory).sort().reverse();
     const selectedMonthANP = monthlyHistory[selectedMonthKey] || 0;
 
-    const pendingCount = monitoringData.filter(item => item.status === 'Pending').length;
-    const recentCount = monitoringData.filter(item => {
+    const pendingCount = (monitoringData || []).filter(item => item.status === 'Pending').length;
+    const recentCount = (monitoringData || []).filter(item => {
         const diff = new Date() - new Date(item.created_at);
         return diff < (1000 * 60 * 60 * 24 * 3);
     }).length;
@@ -222,13 +222,13 @@ const DashboardPage = () => {
                 {/* TOP ROW */}
                 <div className="stat-card blue">
                     <div className="stat-header"><div className="stat-label">Total ANP</div></div>
-                    <div className="stat-value">PHP {stats.totalANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                    <div className="stat-value">PHP {stats.totalANP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className="stat-subtext">All-time annual premium</div>
                 </div>
 
                 <div className="stat-card green">
                     <div className="stat-header"><div className="stat-label">Monthly ANP</div></div>
-                    <div className="stat-value">PHP {stats.monthlyANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                    <div className="stat-value">PHP {stats.monthlyANP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className="stat-subtext">This Month</div>
                 </div>
 
@@ -251,7 +251,7 @@ const DashboardPage = () => {
                             )}
                         </select>
                     </div>
-                    <div className="stat-value">PHP {selectedMonthANP.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                    <div className="stat-value">PHP {selectedMonthANP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className="stat-subtext">{selectedMonthKey ? formatMonthKey(selectedMonthKey) : 'Select Month'}</div>
                 </div>
 

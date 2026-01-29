@@ -70,10 +70,11 @@ export const AppProvider = ({ children }) => {
         try {
             const res = await api.getAllMonitoring(currentUser?.id);
             if (res.success) {
-                setMonitoringData(res.data);
+                setMonitoringData(res.data || []);
             }
         } catch (error) {
             console.error('Error loading monitoring data:', error);
+            setMonitoringData([]);
         }
     };
 
@@ -81,10 +82,11 @@ export const AppProvider = ({ children }) => {
         try {
             const res = await api.getAllFormSubmissions(currentUser?.id);
             if (res.success) {
-                setFormSubmissions(res.data);
+                setFormSubmissions(res.data || []);
             }
         } catch (error) {
             console.error('Error loading form submissions:', error);
+            setFormSubmissions([]);
         }
     };
 
@@ -92,10 +94,11 @@ export const AppProvider = ({ children }) => {
         try {
             const res = await api.getAllCustomers(currentUser?.id);
             if (res.success) {
-                setCustomers(res.data);
+                setCustomers(res.data || []);
             }
         } catch (error) {
             console.error('Error loading customers:', error);
+            setCustomers([]);
         }
     };
 
@@ -103,10 +106,11 @@ export const AppProvider = ({ children }) => {
         try {
             const res = await api.getALTeamPerformance(currentUser?.id);
             if (res.success) {
-                setPerformanceData(res.data);
+                setPerformanceData(res.data || null);
             }
         } catch (error) {
             console.error('Error loading performance data:', error);
+            setPerformanceData(null);
         }
     };
 

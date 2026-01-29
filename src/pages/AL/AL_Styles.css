@@ -20,7 +20,7 @@
 }
 
 .al-layout .sidebar {
-    width: 260px;
+    width: 280px;
     background: linear-gradient(180deg, #003781 0%, #002557 100%);
     color: white;
     position: fixed;
@@ -140,10 +140,13 @@
 /* --- MAIN CONTENT STYLES --- */
 .al-layout .main-content {
     flex: 1;
-    margin-left: 260px;
+    margin-left: 280px;
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
     min-height: 100vh;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
 }
 
 .al-layout .top-bar {
@@ -154,10 +157,11 @@
     align-items: center;
     border-bottom: 3px solid #0055b8;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    position: sticky;
-    top: -40px;
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 280px;
     z-index: 900;
-    margin: -40px -40px 0 -40px;
     width: auto;
 }
 
@@ -207,8 +211,24 @@
 .al-layout .container {
     width: 100%;
     max-width: 1600px;
-    margin: 40px auto;
-    padding: 0 40px;
+    margin: 0 auto;
+    margin: 0 auto;
+    margin: 0 auto;
+    padding: 90px 30px 30px 30px;
+}
+
+.al-layout .content-container {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+}
+
+.al-layout h2 {
+    margin-top: 0;
 }
 
 /* --- CARD & FORM STYLES --- */

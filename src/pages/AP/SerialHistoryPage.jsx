@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 
 const SerialHistoryPage = () => {
-    const { monitoringData, loadMonitoringData } = useApp();
+    const { monitoringData, loadMonitoringData, currentUser } = useApp();
     const [searchTerm, setSearchTerm] = useState('');
 
     // --- PAGINATION STATE ---
@@ -15,6 +15,9 @@ const SerialHistoryPage = () => {
 
     // Filter Logic
     const filteredItems = monitoringData.filter(item => {
+        // [UPDATE] Restrict to current user's transactions only
+        if (currentUser?.id && item.profile_id !== currentUser.id) return false;
+
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             const name = (item.client_name || item.client_first_name || '').toLowerCase();
@@ -45,8 +48,8 @@ const SerialHistoryPage = () => {
     };
 
     return (
-        <div className="card">
-            <div className="card-header">
+        <div className="content-container">
+            <div style={{ marginBottom: '20px', borderBottom: '2px solid #f1f1f1', paddingBottom: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                     <div>
                         <h2 style={{ margin: '0 0 5px 0' }}>Serial Request History</h2>
@@ -86,7 +89,7 @@ const SerialHistoryPage = () => {
                     </div>
                 </div>
             </div>
-            <div className="card-body">
+            <div>
                 {currentItems.length === 0 ? (
                     <div style={{
                         textAlign: 'center',

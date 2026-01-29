@@ -186,11 +186,11 @@ const MonitoringPage = () => {
     };
 
     return (
-        <div className="card" style={{ maxWidth: '1400px', margin: '0 auto', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #eaecf0' }}>
-            <div className="card-header" style={{ padding: '16px 24px', borderBottom: '1px solid #eaecf0', background: '#fff', borderRadius: '12px 12px 0 0' }}>
+        <div className="content-container" style={{ maxWidth: '1400px' }}>
+            <div style={{ paddingBottom: '16px', borderBottom: '1px solid #eaecf0', marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '18px', margin: 0, fontWeight: '700', color: '#101828', letterSpacing: '-0.02em' }}>Solution Provider Monitoring</h2>
             </div>
-            <div className="card-body" style={{ padding: '24px', background: '#fff', borderRadius: '0 0 12px 12px' }}>
+            <div>
                 {message && (
                     <div className={`alert ${messageType === 'success' ? 'alert-success' : 'alert-error'}`} style={{
                         padding: '10px 16px',

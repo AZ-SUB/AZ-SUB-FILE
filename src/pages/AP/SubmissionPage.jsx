@@ -169,9 +169,9 @@ const SubmissionPage = () => {
             const response = await fetch('http://localhost:3000/api/preview-application', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    formData: { ...formData, isGAE, isVSP }, 
-                    serialNumber: formData.serialNumber 
+                body: JSON.stringify({
+                    formData: { ...formData, isGAE, isVSP },
+                    serialNumber: formData.serialNumber
                 })
             });
 
@@ -247,7 +247,7 @@ const SubmissionPage = () => {
         } else {
             // 2. Fallback to Legacy Hardcoded Requirements
             reqs = [...(LEGACY_REQUIREMENTS[formData.formType] || [])];
-            
+
             // If VUL and GAE is selected, filter out "nonGaeOnly" items
             if (formData.formType === 'VUL' && isGAE) {
                 reqs = reqs.filter(r => !r.nonGaeOnly);
@@ -286,7 +286,7 @@ const SubmissionPage = () => {
 
             const dataPayload = new FormData();
             dataPayload.append('serialNumber', formData.serialNumber);
-            dataPayload.append('formData', JSON.stringify({ ...formData, isGAE, isVSP })); 
+            dataPayload.append('formData', JSON.stringify({ ...formData, isGAE, isVSP }));
 
             Object.entries(specificFiles).forEach(([key, filesArray]) => {
                 filesArray.forEach(file => {
@@ -326,11 +326,11 @@ const SubmissionPage = () => {
     const showMedicalSection = formData.formType && (formData.formType !== 'VUL' || !isGAE);
 
     return (
-        <div className="card">
-            <div className="card-header">
-                <h2>Document Submission</h2>
+        <div className="content-container">
+            <div style={{ marginBottom: '20px', borderBottom: '2px solid #f1f1f1', paddingBottom: '15px' }}>
+                <h2 style={{ fontSize: '20px', margin: 0 }}>Document Submission</h2>
             </div>
-            <div className="card-body">
+            <div>
                 {message && (
                     <div className={`alert ${messageType === 'success' ? 'alert-success' : 'alert-error'}`}
                         style={{
@@ -414,21 +414,21 @@ const SubmissionPage = () => {
 
                     {/* --- VSP TOGGLE & BUTTON --- */}
                     {formData.formType && (
-                        <div className="form-group" style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column', 
+                        <div className="form-group" style={{
+                            display: 'flex',
+                            flexDirection: 'column',
                             justifyContent: 'center',
                             alignItems: 'center',
                             gap: '15px',
-                            marginTop: 'auto', 
-                            padding: '15px', 
-                            backgroundColor: '#e3f2fd', 
-                            borderRadius: '4px', 
+                            marginTop: 'auto',
+                            padding: '15px',
+                            backgroundColor: '#e3f2fd',
+                            borderRadius: '4px',
                             border: '1px solid #b3d7ff'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     id="vsp-toggle"
                                     checked={isVSP}
                                     onChange={(e) => setIsVSP(e.target.checked)}
@@ -563,7 +563,7 @@ const SubmissionPage = () => {
                                                 </label>
                                             </div>
                                         </div>
-                                        
+
                                         {hasFiles && (
                                             <ul style={{ listStyle: 'none', padding: 0, margin: 0, borderTop: '1px solid #eee', paddingTop: '8px' }}>
                                                 {uploadedFiles.map((file, idx) => (
