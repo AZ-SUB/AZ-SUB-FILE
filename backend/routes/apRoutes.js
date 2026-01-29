@@ -1,4 +1,4 @@
-// - Updated filename format
+// - Updated to fetch Requirements column
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -34,7 +34,7 @@ router.get('/policies/active', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('policy')
-            .select('policy_id, policy_name, policy_type, form_type, request_type, agency')
+            .select('policy_id, policy_name, policy_type, form_type, request_type, agency, requirements') // Included requirements here too
             .eq('active_status', true)
             .order('policy_name', { ascending: true });
 
@@ -158,7 +158,7 @@ router.post('/monitoring/submit', async (req, res) => {
     }
 });
 
-// 3. GET DETAILS
+// 3. GET DETAILS (Fixed: Select Requirements)
 router.get('/submissions/details/:serialNumber', async (req, res) => {
     try {
         const { serialNumber } = req.params;
@@ -172,12 +172,26 @@ router.get('/submissions/details/:serialNumber', async (req, res) => {
 
         if (!sData) return res.status(404).json({ success: false, message: 'Serial not found' });
 
-        const { data: sub } = await supabase.from('az_submissions').select(`*, policy (policy_type), profiles (first_name, last_name)`).eq('serial_id', sData.serial_id).limit(1).maybeSingle();
+        // --- UPDATED QUERY TO INCLUDE requirements ---
+        const { data: sub } = await supabase.from('az_submissions')
+            .select(`*, policy (policy_type, requirements), profiles (first_name, last_name)`)
+            .eq('serial_id', sData.serial_id).limit(1).maybeSingle();
 
         if (!sub) return res.status(404).json({ success: false, message: 'Submission not found' });
 
         const nameParts = (sub.client_name || '').split(' ');
-        res.json({ success: true, data: { clientFirstName: nameParts[0], clientLastName: nameParts.slice(1).join(' '), clientEmail: sub.client_email, policyType: sub.policy?.policy_type, modeOfPayment: sub.mode_of_payment, policyDate: sub.issued_at } });
+        res.json({ 
+            success: true, 
+            data: { 
+                clientFirstName: nameParts[0], 
+                clientLastName: nameParts.slice(1).join(' '), 
+                clientEmail: sub.client_email, 
+                policyType: sub.policy?.policy_type, 
+                modeOfPayment: sub.mode_of_payment, 
+                policyDate: sub.issued_at,
+                requirements: sub.policy?.requirements // Pass requirements to frontend
+            } 
+        });
     } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
@@ -201,6 +215,8 @@ router.get('/form-submissions', async (req, res) => {
         res.json({ success: true, data });
     } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
+
+// - Updated POST /form-submissions to fix Upload Error
 
 router.post('/form-submissions', upload.any(), async (req, res) => {
     try {
@@ -234,6 +250,7 @@ router.post('/form-submissions', upload.any(), async (req, res) => {
         const newFilesForDB = [];
         const emailAttachments = [];
 
+        // 1. Handle User Uploaded Files
         if (req.files) {
             for (const f of req.files) {
                 try {
@@ -244,12 +261,28 @@ router.post('/form-submissions', upload.any(), async (req, res) => {
             }
         }
 
+        // 2. Generate PDF
         const pdfBuffer = await generateApplicationPDF(parsedData, serialNumber);
-        const pdfFilename = `Application_${serialNumber}.pdf`;
-        const pdfUpload = await uploadBufferToSupabase(pdfBuffer, pdfFilename, existing.sub_id);
+        
+        // --- FIX: SEPARATE FILENAMES ---
+        
+        // A. Safe Name for Database (No brackets, no commas)
+        // Turns "Application [123, John].pdf" into "Application_123_John.pdf"
+        const cleanName = existing.client_name.replace(/[^a-zA-Z0-9]/g, '_'); 
+        const storageFilename = `Application_${serialNumber}_${cleanName}.pdf`;
+
+        // B. Pretty Name for Email (Keeps your desired format)
+        const emailFilename = `Application [${serialNumber}, ${existing.client_name}].pdf`;
+
+        // Upload using SAFE name
+        const pdfUpload = await uploadBufferToSupabase(pdfBuffer, storageFilename, existing.sub_id);
         newFilesForDB.push(pdfUpload);
         const generatedPdfUrl = pdfUpload.fileUrl;
-        emailAttachments.push({ filename: pdfFilename, content: pdfBuffer });
+
+        // Attach to email using PRETTY name
+        emailAttachments.push({ filename: emailFilename, content: pdfBuffer });
+
+        // -------------------------------
 
         const { data: updated, error } = await supabase.from('az_submissions').update({
             form_type: parsedData.formType, mode_of_payment: parsedData.modeOfPayment,
@@ -373,7 +406,9 @@ router.post('/vsp/send-attestation', async (req, res) => {
         if (!clientEmail) return res.status(400).json({ success: false, message: 'Client email missing.' });
 
         // STEP 3: SEND EMAIL
-        const baseUrl = 'http://localhost:3000/api'; 
+        // UPDATED: Checks for process.env.BASE_URL first
+        const baseUrl = process.env.BASE_URL || 'http://localhost:3000/api'; 
+        
         const yesLink = `${baseUrl}/vsp/verify-attestation?serial=${inputSerial}&response=yes&client=${encodeURIComponent(clientName)}`;
         const noLink = `${baseUrl}/vsp/verify-attestation?serial=${inputSerial}&response=no&client=${encodeURIComponent(clientName)}`;
 
@@ -409,7 +444,7 @@ router.post('/vsp/send-attestation', async (req, res) => {
     }
 });
 
-// 7. VERIFY & DOWNLOAD PROOF (WITH CUSTOM FILENAME)
+// 7. VERIFY & DOWNLOAD PROOF
 router.get('/vsp/verify-attestation', async (req, res) => {
     const { serial, response, client } = req.query;
     const timestamp = new Date().toLocaleString();
@@ -418,24 +453,18 @@ router.get('/vsp/verify-attestation', async (req, res) => {
         return res.send(`<div style="font-family:Arial; padding:50px; text-align:center; color:#dc3545;"><h1>DECLINED</h1><p>Attestation Declined for ${serial}.</p></div>`);
     }
 
-    // --- EMBED LOGO 2.PNG (From SRC/ASSETS) ---
+    // --- EMBED LOGO 2.PNG ---
     let logoSrc = '';
     try {
         const imagePath = path.join(__dirname, '../../src/assets/2.png'); 
-        
-        console.log(`[VSP] Looking for logo at: ${imagePath}`);
-
         if (fs.existsSync(imagePath)) {
             const imageBuffer = fs.readFileSync(imagePath);
             logoSrc = `data:image/png;base64,${imageBuffer.toString('base64')}`;
-        } else {
-            console.warn("[VSP] Logo '2.png' not found at:", imagePath);
         }
     } catch (e) {
         console.error("[VSP] Error loading logo:", e);
     }
 
-    // --- GENERATE PROOF HTML ---
     const proofHtml = `
         <!DOCTYPE html>
         <html>
@@ -453,40 +482,28 @@ router.get('/vsp/verify-attestation', async (req, res) => {
         </head>
         <body>
             <div id="status" style="color:#28a745; font-weight:bold; margin-bottom:15px;">✅ Attestation Recorded! Downloading proof...</div>
-            
             <div class="proof-container" id="capture-area">
                 ${logoSrc ? `<img src="${logoSrc}" class="header-logo" alt="Logo" />` : ''}
                 <div class="stamp">OFFICIALLY ATTESTED</div>
                 <h2 style="color: #0055b8; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-top: 5px;">VSP Attestation Receipt</h2>
-                
                 <table style="width: 100%; margin-top: 20px; font-size: 14px; color: #555;">
                     <tr><td style="width: 140px; font-weight:bold;">Ref Number:</td><td>${serial}</td></tr>
                     <tr><td style="font-weight:bold;">Date Verified:</td><td>${timestamp}</td></tr>
                     <tr><td style="font-weight:bold;">Status:</td><td style="color:#28a745; font-weight:bold;">CONFIRMED</td></tr>
                 </table>
-
                 <div style="background-color: #f9f9f9; padding: 25px; border-left: 5px solid #28a745; margin: 30px 0; border-radius: 4px;">
                     <p style="font-size: 18px; font-style: italic; margin: 0; color: #333; line-height: 1.6;">
                         "I, <strong>${client}</strong>, attest to this transaction with the Financial Advisor that this transaction is true and valid."
                     </p>
                 </div>
-                
-                <p style="font-size: 12px; color: #999; margin-top: 50px; text-align: center; border-top: 1px solid #eee; padding-top: 15px;">
-                    This document serves as digital proof of client attestation for the Allianz VSP process.
-                </p>
             </div>
-
             <button onclick="downloadScreenshot()" class="btn-download">Download Again</button>
-
             <script>
                 function downloadScreenshot() {
                     const element = document.getElementById("capture-area");
                     html2canvas(element, { scale: 2 }).then(canvas => {
                         const link = document.createElement('a');
-                        
-                        // --- UPDATED FILENAME FORMAT HERE ---
                         link.download = 'Attestation Proof [${serial}, ${client}].png';
-                        
                         link.href = canvas.toDataURL("image/png");
                         link.click();
                         document.getElementById("status").innerText = "✅ Proof Downloaded!";

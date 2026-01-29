@@ -1,3 +1,4 @@
+// - Updated to render Dynamic Requirements
 import { useState } from 'react';
 import api from '../../services/api';
 
@@ -13,6 +14,9 @@ const SubmissionPage = () => {
     const [isGAE, setIsGAE] = useState(false);
     const [isVSP, setIsVSP] = useState(false);
 
+    // --- NEW: Dynamic Requirements State ---
+    const [dynamicRequirements, setDynamicRequirements] = useState([]);
+
     const [specificFiles, setSpecificFiles] = useState({});
 
     // UI States
@@ -25,8 +29,8 @@ const SubmissionPage = () => {
     const [showPreview, setShowPreview] = useState(false);
     const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
 
-    // --- REQUIREMENTS CONFIGURATION ---
-    const REQUIREMENTS = {
+    // --- LEGACY REQUIREMENTS CONFIGURATION (Fallback) ---
+    const LEGACY_REQUIREMENTS = {
         'VUL': [
             { id: 'app_form', label: 'Accomplished Application Form', required: true },
             { id: 'auth_med', label: 'Authorization to Furnish Medical', required: true, nonGaeOnly: true },
@@ -94,6 +98,13 @@ const SubmissionPage = () => {
                     formType: detectedCategory
                 }));
 
+                // --- NEW: Set Dynamic Requirements from Backend ---
+                if (data.requirements && Array.isArray(data.requirements) && data.requirements.length > 0) {
+                    setDynamicRequirements(data.requirements);
+                } else {
+                    setDynamicRequirements([]); // Fallback to legacy logic
+                }
+
                 // Reset Options
                 setIsGAE(false);
                 setIsVSP(false);
@@ -104,6 +115,7 @@ const SubmissionPage = () => {
                 setMessage('Serial Number not found.');
                 setMessageType('error');
                 setFormData(prev => ({ ...prev, formType: '', policyType: '' }));
+                setDynamicRequirements([]);
             }
         } catch (error) {
             console.error(error);
@@ -157,9 +169,9 @@ const SubmissionPage = () => {
             const response = await fetch('http://localhost:3000/api/preview-application', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    formData: { ...formData, isGAE, isVSP },
-                    serialNumber: formData.serialNumber
+                body: JSON.stringify({ 
+                    formData: { ...formData, isGAE, isVSP }, 
+                    serialNumber: formData.serialNumber 
                 })
             });
 
@@ -181,7 +193,7 @@ const SubmissionPage = () => {
         setShowPreview(false);
     };
 
-    // --- NEW: VSP ATTESTATION EMAIL HANDLER ---
+    // --- VSP ATTESTATION EMAIL HANDLER ---
     const handleSendAttestation = async () => {
         if (!formData.serialNumber) {
             alert("Please enter a valid Serial Number first.");
@@ -195,7 +207,6 @@ const SubmissionPage = () => {
             setMessage('Sending attestation email...');
             setMessageType('info');
 
-            // Send request to backend
             const response = await fetch('http://localhost:3000/api/vsp/send-attestation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -221,18 +232,31 @@ const SubmissionPage = () => {
     // --- HELPER TO GET ACTIVE REQUIREMENTS ---
     const getActiveRequirements = () => {
         if (!formData.formType) return [];
-        let reqs = [...(REQUIREMENTS[formData.formType] || [])];
 
-        // If VUL and GAE is selected, filter out "nonGaeOnly" items (like Medical Auth)
-        if (formData.formType === 'VUL' && isGAE) {
-            reqs = reqs.filter(r => !r.nonGaeOnly);
+        let reqs = [];
+
+        // 1. Check if Dynamic Requirements exist (from Admin)
+        if (dynamicRequirements.length > 0) {
+            // Map dynamic requirements to the format needed by UI
+            // We use the label as a base for ID if ID is missing
+            reqs = dynamicRequirements.map((r, index) => ({
+                id: r.id || `req_${index}_${r.label.replace(/\s+/g, '_').toLowerCase()}`,
+                label: r.label,
+                required: r.required
+            }));
+        } else {
+            // 2. Fallback to Legacy Hardcoded Requirements
+            reqs = [...(LEGACY_REQUIREMENTS[formData.formType] || [])];
+            
+            // If VUL and GAE is selected, filter out "nonGaeOnly" items
+            if (formData.formType === 'VUL' && isGAE) {
+                reqs = reqs.filter(r => !r.nonGaeOnly);
+            }
         }
 
-        // --- VSP LOGIC ---
+        // --- VSP LOGIC (Always Appended) ---
         if (isVSP) {
             reqs.push({ id: 'proof_meet', label: 'Proof of Meeting (VSP)', required: true });
-            // Note: Attestation is now handled via email, but we still might require proof in file form
-            // If the email replaces the file, you can remove this line below:
             reqs.push({ id: 'proof_attest', label: 'Proof of Attestation (VSP)', required: true });
         }
 
@@ -262,7 +286,7 @@ const SubmissionPage = () => {
 
             const dataPayload = new FormData();
             dataPayload.append('serialNumber', formData.serialNumber);
-            dataPayload.append('formData', JSON.stringify({ ...formData, isGAE, isVSP }));
+            dataPayload.append('formData', JSON.stringify({ ...formData, isGAE, isVSP })); 
 
             Object.entries(specificFiles).forEach(([key, filesArray]) => {
                 filesArray.forEach(file => {
@@ -285,6 +309,7 @@ const SubmissionPage = () => {
                 setIsGAE(false);
                 setIsVSP(false);
                 setSpecificFiles({});
+                setDynamicRequirements([]); // Reset dynamic reqs
             } else {
                 setMessage('Submission failed: ' + response.message);
                 setMessageType('error');
@@ -298,7 +323,6 @@ const SubmissionPage = () => {
         }
     };
 
-    // Only show medical if NOT VUL-GAE
     const showMedicalSection = formData.formType && (formData.formType !== 'VUL' || !isGAE);
 
     return (
@@ -388,23 +412,23 @@ const SubmissionPage = () => {
                         </div>
                     )}
 
-                    {/* --- MODIFIED VSP SECTION WITH ATTESTATION BUTTON --- */}
+                    {/* --- VSP TOGGLE & BUTTON --- */}
                     {formData.formType && (
-                        <div className="form-group" style={{
-                            display: 'flex',
-                            flexDirection: 'column', // Stack contents vertically
+                        <div className="form-group" style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
                             justifyContent: 'center',
                             alignItems: 'center',
                             gap: '15px',
-                            marginTop: 'auto',
-                            padding: '15px',
-                            backgroundColor: '#e3f2fd',
-                            borderRadius: '4px',
+                            marginTop: 'auto', 
+                            padding: '15px', 
+                            backgroundColor: '#e3f2fd', 
+                            borderRadius: '4px', 
                             border: '1px solid #b3d7ff'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <input
-                                    type="checkbox"
+                                <input 
+                                    type="checkbox" 
                                     id="vsp-toggle"
                                     checked={isVSP}
                                     onChange={(e) => setIsVSP(e.target.checked)}
@@ -539,7 +563,7 @@ const SubmissionPage = () => {
                                                 </label>
                                             </div>
                                         </div>
-
+                                        
                                         {hasFiles && (
                                             <ul style={{ listStyle: 'none', padding: 0, margin: 0, borderTop: '1px solid #eee', paddingTop: '8px' }}>
                                                 {uploadedFiles.map((file, idx) => (
