@@ -59,7 +59,10 @@ router.get('/performance/all', async (req, res) => {
             totalIssued: 0,
             totalPending: 0,
             totalDeclined: 0,
-            averageConversionRate: 0
+            averageConversionRate: 0,
+            policyDistribution: {},
+            mostUsedPolicy: 'N/A',
+            mostUsedPolicyCount: 0
         };
 
         let totalConversionRates = 0;
@@ -116,6 +119,12 @@ router.get('/performance/all', async (req, res) => {
                 teamStats.totalTeamANP += totalPremium;
                 teamStats.totalIssued++;
 
+                // Track policy distribution
+                if (sub.policy_type) {
+                    teamStats.policyDistribution[sub.policy_type] =
+                        (teamStats.policyDistribution[sub.policy_type] || 0) + 1;
+                }
+
                 const now = new Date();
                 const subDate = new Date(sub.issued_at);
                 if (subDate.getMonth() === now.getMonth() && subDate.getFullYear() === now.getFullYear()) {
@@ -144,6 +153,14 @@ router.get('/performance/all', async (req, res) => {
 
         if (apCountForConversion > 0) {
             teamStats.averageConversionRate = (totalConversionRates / apCountForConversion).toFixed(1);
+        }
+
+        // Calculate most used policy
+        const policyEntries = Object.entries(teamStats.policyDistribution);
+        if (policyEntries.length > 0) {
+            const mostUsed = policyEntries.sort((a, b) => b[1] - a[1])[0];
+            teamStats.mostUsedPolicy = mostUsed[0];
+            teamStats.mostUsedPolicyCount = mostUsed[1];
         }
 
         res.json({

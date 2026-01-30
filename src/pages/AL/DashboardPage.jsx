@@ -313,11 +313,26 @@ const DashboardPage = () => {
                 </div>
             </div>
 
-            <div className="card">
-                <div className="card-header">
-                    <h2>Serial Number Usage</h2>
+            {/* Serial Number Usage - Container Layout */}
+            <div style={{ marginTop: '32px' }}>
+                <div style={{
+                    marginBottom: '20px',
+                    paddingBottom: '12px',
+                    borderBottom: '2px solid #e9ecef'
+                }}>
+                    <h2 style={{
+                        fontSize: '20px',
+                        fontWeight: '700',
+                        color: '#2c3e50',
+                        margin: 0
+                    }}>Serial Number Usage</h2>
                 </div>
-                <div className="card-body">
+                <div style={{
+                    backgroundColor: '#fff',
+                    borderRadius: '8px',
+                    padding: '20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}>
                     <table className="serial-table">
                         <thead>
                             <tr>

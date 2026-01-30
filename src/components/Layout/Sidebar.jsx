@@ -1,11 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 // [CHANGE] Import the logo
-import logo1 from '../../assets/logo1.png'; 
+import logo1 from '../../assets/logo1.png';
 
 const Sidebar = () => {
     const location = useLocation();
-    const { userRole } = useApp();
+    const { userRole, loading } = useApp();
 
     // AP Menu Items
     const apMenuItems = [
@@ -125,6 +125,10 @@ const Sidebar = () => {
         }
     ];
 
+    if (loading) {
+        return <div className="sidebar" style={{ backgroundColor: '#fff', borderRight: '1px solid #eaecf0' }}></div>;
+    }
+
     // Select menu items based on user role
     const menuItems = userRole === 'AL' ? alMenuItems : apMenuItems;
 
@@ -133,15 +137,15 @@ const Sidebar = () => {
             <div className="sidebar-header">
                 <Link to="/home" className="sidebar-logo" title="Go to Home">
                     {/* [CHANGE] Replaced Text with Image */}
-                    <img 
-                        src={logo1} 
-                        alt="Caelum" 
-                        style={{ 
-                            height: '45px', 
-                            display: 'block', 
+                    <img
+                        src={logo1}
+                        alt="Caelum"
+                        style={{
+                            height: '45px',
+                            display: 'block',
                             margin: '0 auto',
                             objectFit: 'contain'
-                        }} 
+                        }}
                     />
                 </Link>
             </div>

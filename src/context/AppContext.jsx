@@ -19,11 +19,16 @@ export const AppProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null); // { id, username, role, managerId }
     const [userRole, setUserRole] = useState(null);
     const [performanceData, setPerformanceData] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     // Test connection and load user on mount
     useEffect(() => {
-        testConnection();
-        loadUser();
+        const initParams = async () => {
+            await testConnection();
+            await loadUser();
+            setLoading(false);
+        };
+        initParams();
     }, []);
 
     // Load data once user is authenticated
@@ -133,7 +138,9 @@ export const AppProvider = ({ children }) => {
         loadFormSubmissions,
         loadCustomers,
         loadPerformanceData,
-        testConnection
+        loadPerformanceData,
+        testConnection,
+        loading
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
